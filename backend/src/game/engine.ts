@@ -1,0 +1,321 @@
+// The authoritative Polashi state machine. Pure and deterministic:
+// reduce(state, action) -> new state, or throws GameError on an illegal action.
+// Every rule lives here so the transport/persistence layers can stay dumb.
+
+import {
+  CHAPTER_COUNT,
+  MAX_FAILED_PROPOSALS,
+  MAX_PLAYERS,
+  MIN_PLAYERS,
+  WINS_REQUIRED,
+  teamSize,
+  twoFailRequired,
+  validateOptionalCharacters,
+} from './config.js';
+import { computeKnowledge, dealRoles, type Rng } from './roles.js';
+import {
+  CHARACTER_SIDE,
+  GameError,
+  type ChapterState,
+  type GameState,
+  type MissionCard,
+  type PlayerState,
+  type RoomSettings,
+  type Side,
+  type VoteValue,
+} from './types.js';
+
+export type Action =
+  | { type: 'START_GAME'; actorId: string }
+  | { type: 'ACK_ROLE'; actorId: string }
+  | { type: 'PROPOSE_TEAM'; actorId: string; memberIds: string[] }
+  | { type: 'CAST_VOTE'; actorId: string; value: VoteValue }
+  | { type: 'SUBMIT_CARD'; actorId: string; card: MissionCard }
+  | { type: 'ADVANCE_CHAPTER'; actorId: string }
+  | { type: 'FINAL_GUESS'; actorId: string; targetId: string };
+
+interface ReduceContext {
+  rng: Rng;
+  hostId: string; // only the host may START_GAME / ADVANCE_CHAPTER
+}
+
+// ---------- helpers ----------
+
+const sideOfRole = (state: GameState, playerId: string): Side =>
+  CHARACTER_SIDE[state.roles[playerId]!];
+
+function playerBySeat(state: GameState, seat: number): PlayerState {
+  const p = state.players.find((x) => x.seatIndex === seat);
+  if (!p) throw new GameError('BAD_SEAT', `No player at seat ${seat}`);
+  return p;
+}
+
+// Rotation is "to the left" per rulebook image 3: next seat clockwise.
+function nextSeat(state: GameState, seat: number): number {
+  return (seat + 1) % state.players.length;
+}
+
+function requirePhase(state: GameState, ...allowed: GameState['status'][]) {
+  if (!allowed.includes(state.status)) {
+    throw new GameError('WRONG_PHASE', `Action not allowed in phase ${state.status}`);
+  }
+}
+
+function bump(state: GameState): GameState {
+  return { ...state, version: state.version + 1 };
+}
+
+// ---------- factory ----------
+
+export function createLobby(
+  roomId: string,
+  players: PlayerState[],
+  settings: RoomSettings,
+): GameState {
+  return {
+    roomId,
+    status: 'LOBBY',
+    players: [...players].sort((a, b) => a.seatIndex - b.seatIndex),
+    settings,
+    roles: {},
+    knowledge: {},
+    shobapotiSeat: 0,
+    chapterIndex: 0,
+    chapters: [],
+    current: null,
+    failedProposals: 0,
+    wins: { NAWAB: 0, EIC: 0 },
+    finalGuess: null,
+    winner: null,
+    version: 0,
+  };
+}
+
+// ---------- reducer ----------
+
+export function reduce(state: GameState, action: Action, ctx: ReduceContext): GameState {
+  switch (action.type) {
+    case 'START_GAME':
+      return startGame(state, action.actorId, ctx);
+    case 'ACK_ROLE':
+      return ackRole(state, action.actorId);
+    case 'PROPOSE_TEAM':
+      return proposeTeam(state, action.actorId, action.memberIds);
+    case 'CAST_VOTE':
+      return castVote(state, action.actorId, action.value);
+    case 'SUBMIT_CARD':
+      return submitCard(state, action.actorId, action.card);
+    case 'ADVANCE_CHAPTER':
+      return advanceChapter(state, action.actorId, ctx);
+    case 'FINAL_GUESS':
+      return finalGuess(state, action.actorId, action.targetId);
+  }
+}
+
+function startGame(state: GameState, actorId: string, ctx: ReduceContext): GameState {
+  requirePhase(state, 'LOBBY');
+  if (actorId !== ctx.hostId) throw new GameError('NOT_HOST', 'Only the host may start');
+  const n = state.players.length;
+  if (n < MIN_PLAYERS || n > MAX_PLAYERS) {
+    throw new GameError('BAD_PLAYER_COUNT', `Need ${MIN_PLAYERS}-${MAX_PLAYERS} players, have ${n}`);
+  }
+  if (!state.players.every((p) => p.ready)) {
+    throw new GameError('NOT_ALL_READY', 'All players must be ready');
+  }
+  const opt = validateOptionalCharacters(state.settings.optionalCharacters, n);
+  if (!opt.ok) throw new GameError('BAD_SETTINGS', opt.reason);
+
+  const roles = dealRoles(state.players, state.settings, ctx.rng);
+  const knowledge = computeKnowledge(roles);
+  const shobapotiSeat = Math.floor(ctx.rng() * n);
+
+  return bump({
+    ...state,
+    status: 'ROLE_REVEAL',
+    roles,
+    knowledge,
+    shobapotiSeat,
+    players: state.players.map((p) => ({ ...p, ackedRole: false })),
+  });
+}
+
+function ackRole(state: GameState, actorId: string): GameState {
+  requirePhase(state, 'ROLE_REVEAL');
+  const players = state.players.map((p) => (p.id === actorId ? { ...p, ackedRole: true } : p));
+  const allAcked = players.every((p) => p.ackedRole);
+  const next: GameState = { ...state, players };
+  return allAcked ? bump(beginChapter(next, 1)) : bump(next);
+}
+
+function beginChapter(state: GameState, index: number): GameState {
+  const n = state.players.length;
+  const chapter: ChapterState = {
+    index,
+    teamSize: teamSize(index, n),
+    twoFailRequired: twoFailRequired(index, n),
+    winner: null,
+  };
+  return {
+    ...state,
+    status: 'TEAM_PROPOSAL',
+    chapterIndex: index,
+    chapters: [...state.chapters.filter((c) => c.index !== index), chapter],
+    current: null,
+    failedProposals: 0,
+  };
+}
+
+function currentChapter(state: GameState): ChapterState {
+  const c = state.chapters.find((x) => x.index === state.chapterIndex);
+  if (!c) throw new GameError('NO_CHAPTER', 'No active chapter');
+  return c;
+}
+
+function proposeTeam(state: GameState, actorId: string, memberIds: string[]): GameState {
+  requirePhase(state, 'TEAM_PROPOSAL');
+  const shobapoti = playerBySeat(state, state.shobapotiSeat);
+  if (actorId !== shobapoti.id) throw new GameError('NOT_SHOBAPOTI', 'Only the Shobapoti proposes');
+
+  const chapter = currentChapter(state);
+  const unique = new Set(memberIds);
+  if (unique.size !== memberIds.length) throw new GameError('DUP_MEMBER', 'Duplicate team member');
+  if (memberIds.length !== chapter.teamSize) {
+    throw new GameError('BAD_TEAM_SIZE', `Team must have exactly ${chapter.teamSize} members`);
+  }
+  const valid = new Set(state.players.map((p) => p.id));
+  for (const id of memberIds) {
+    if (!valid.has(id)) throw new GameError('BAD_MEMBER', `Unknown player ${id}`);
+  }
+
+  return bump({
+    ...state,
+    status: 'VOTING',
+    current: { shobapotiSeat: state.shobapotiSeat, memberIds: [...memberIds], votes: {} },
+  });
+}
+
+function castVote(state: GameState, actorId: string, value: VoteValue): GameState {
+  requirePhase(state, 'VOTING');
+  if (!state.current) throw new GameError('NO_PROPOSAL', 'No proposal to vote on');
+  if (!state.players.some((p) => p.id === actorId)) {
+    throw new GameError('NOT_PLAYER', 'Voter is not in this room');
+  }
+  if (state.current.votes[actorId]) throw new GameError('DUP_VOTE', 'Player already voted');
+
+  const votes = { ...state.current.votes, [actorId]: value };
+  const next: GameState = { ...state, current: { ...state.current, votes } };
+
+  if (Object.keys(votes).length < state.players.length) return bump(next); // still collecting
+
+  // Tally: tie OR No-majority both count as FAIL (rulebook image 3).
+  const yes = Object.values(votes).filter((v) => v === 'YES').length;
+  const no = state.players.length - yes;
+  return bump(yes > no ? toMission(next) : failProposal(next));
+}
+
+function toMission(state: GameState): GameState {
+  return { ...state, status: 'MISSION' };
+}
+
+function failProposal(state: GameState): GameState {
+  const failed = state.failedProposals + 1;
+  if (failed >= MAX_FAILED_PROPOSALS) {
+    // 5 consecutive failures -> EIC wins this chapter.
+    return resolveChapter(state, 'EIC', { failedByProposals: true });
+  }
+  return {
+    ...state,
+    status: 'TEAM_PROPOSAL',
+    current: null,
+    failedProposals: failed,
+    shobapotiSeat: nextSeat(state, state.shobapotiSeat),
+  };
+}
+
+function submitCard(state: GameState, actorId: string, card: MissionCard): GameState {
+  requirePhase(state, 'MISSION');
+  if (!state.current) throw new GameError('NO_PROPOSAL', 'No active mission');
+  if (!state.current.memberIds.includes(actorId)) {
+    throw new GameError('NOT_TEAM_MEMBER', 'Only selected team members submit a card');
+  }
+  // Nawab loyalists can never sabotage.
+  if (card === 'BETRAYER' && sideOfRole(state, actorId) === 'NAWAB') {
+    throw new GameError('NAWAB_NO_BETRAYER', 'Nawab players must play Success');
+  }
+  const chapter = currentChapter(state);
+  const cards = { ...(chapter.cards ?? {}) };
+  if (cards[actorId]) throw new GameError('DUP_CARD', 'Card already submitted');
+  cards[actorId] = card;
+
+  const updated: ChapterState = { ...chapter, cards };
+  let next: GameState = {
+    ...state,
+    chapters: state.chapters.map((c) => (c.index === chapter.index ? updated : c)),
+  };
+
+  if (Object.keys(cards).length < state.current.memberIds.length) return bump(next); // still collecting
+
+  // Resolve mission.
+  const betrayers = Object.values(cards).filter((c) => c === 'BETRAYER').length;
+  const threshold = chapter.twoFailRequired ? 2 : 1;
+  const eicWins = betrayers >= threshold;
+  next = { ...next, chapters: next.chapters.map((c) => (c.index === chapter.index ? { ...c, betrayerCount: betrayers } : c)) };
+  return resolveChapter(next, eicWins ? 'EIC' : 'NAWAB', { betrayerCount: betrayers });
+}
+
+function resolveChapter(
+  state: GameState,
+  winner: Side,
+  extra: Partial<ChapterState>,
+): GameState {
+  const chapter = currentChapter(state);
+  const resolved: ChapterState = { ...chapter, winner, ...extra };
+  const wins: Record<Side, number> = { ...state.wins, [winner]: state.wins[winner] + 1 };
+  return {
+    ...state,
+    status: 'CHAPTER_RESULT',
+    chapters: state.chapters.map((c) => (c.index === chapter.index ? resolved : c)),
+    wins,
+    current: null,
+  };
+}
+
+function advanceChapter(state: GameState, actorId: string, ctx: ReduceContext): GameState {
+  requirePhase(state, 'CHAPTER_RESULT');
+  if (actorId !== ctx.hostId) throw new GameError('NOT_HOST', 'Only the host advances');
+
+  // Game-ending checks.
+  if (state.wins.EIC >= WINS_REQUIRED) {
+    return bump({ ...state, status: 'GAME_OVER', winner: 'EIC' });
+  }
+  if (state.wins.NAWAB >= WINS_REQUIRED) {
+    // Nawab reached the threshold -> Mir Modon must finger Mir Zafar.
+    const mirModonId = Object.keys(state.roles).find((id) => state.roles[id] === 'MIR_MODON')!;
+    return bump({ ...state, status: 'FINAL_GUESS', finalGuess: { mirModonId } });
+  }
+  if (state.chapterIndex >= CHAPTER_COUNT) {
+    // All chapters played without a 3-win majority (only possible via odd rule edits) — safety net.
+    const winner: Side = state.wins.NAWAB > state.wins.EIC ? 'NAWAB' : 'EIC';
+    return bump({ ...state, status: 'GAME_OVER', winner });
+  }
+  // Next chapter; Shobapoti passes to the left.
+  const advanced = beginChapter(state, state.chapterIndex + 1);
+  return bump({ ...advanced, shobapotiSeat: nextSeat(state, state.shobapotiSeat) });
+}
+
+function finalGuess(state: GameState, actorId: string, targetId: string): GameState {
+  requirePhase(state, 'FINAL_GUESS');
+  if (!state.finalGuess || actorId !== state.finalGuess.mirModonId) {
+    throw new GameError('NOT_MIR_MODON', 'Only Mir Modon makes the final guess');
+  }
+  if (!state.players.some((p) => p.id === targetId)) {
+    throw new GameError('BAD_TARGET', 'Unknown target');
+  }
+  const correct = state.roles[targetId] === 'MIR_ZAFAR';
+  return bump({
+    ...state,
+    status: 'GAME_OVER',
+    finalGuess: { ...state.finalGuess, targetId, correct },
+    winner: correct ? 'NAWAB' : 'EIC',
+  });
+}

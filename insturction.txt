@@ -1,0 +1,217 @@
+You are a senior Android multiplayer game developer.
+
+I want to build an Android multiplayer card/board game based on the uploaded Bangla instruction book images. Read the images carefully and extract the full gameplay rules. The game supports minimum 5 players and maximum 10 players.
+
+Tech preference:
+- Android app
+- Real-time multiplayer room system
+- Backend can be Firebase/Supabase/Node.js/WebSocket
+- Private role visibility
+- Turn-based game state
+- Room code sharing
+- Reconnect support
+
+Game concept:
+There are two hidden teams:
+1. Green team / Nawab side
+2. Red team / EIC side
+
+Player count and team distribution:
+- 5 players: Green 3, Red 2
+- 6 players: Green 4, Red 2
+- 7 players: Green 4, Red 3
+- 8 players: Green 5, Red 3
+- 9 players: Green 6, Red 3
+- 10 players: Green 6, Red 4
+
+At game start:
+- Players join a room.
+- Each player clicks Ready.
+- When player count is 5–10 and everyone is ready, assign character cards randomly.
+- Each player can see only their own character.
+- Only the “Mir Modon” character can see who the Red/EIC team members are.
+- Other special character powers should be implemented from the instruction book images.
+
+Game has 5 chapters/rounds.
+Each chapter has:
+1. Team proposal phase
+2. Yes/No voting phase
+3. Mission/card submission phase
+4. Chapter result phase
+
+President/Shobapoti:
+- First Shobapoti is selected randomly.
+- Shobapoti proposes the chapter team.
+- If team vote fails, Shobapoti moves to the player on the right.
+- Every chapter should show a modal: “Make Team”.
+- Only current Shobapoti can select team members.
+
+Team size per chapter:
+
+Chapter 1:
+- 5–7 players: select 2 team members
+- 8–9 players: select 3 team members
+
+Chapter 2:
+- 5–7 players: select 3 team members
+- 8–10 players: select 4 team members
+
+Chapter 3:
+- 5 players: select 2 team members
+- 6 players: select 4 team members
+- 7 players: select 3 team members
+- 8–10 players: select 4 team members
+
+Chapter 4:
+- 5–6 players: select 3 team members
+- 7 players: select 4 team members, requires 2 red cards for Red/EIC to win
+- 8–10 players: select 5 team members, requires 2 red cards for Red/EIC to win
+
+Chapter 5:
+- 5 players: select 3 team members
+- 6–7 players: select 4 team members
+- 8–10 players: select 5 team members
+
+Voting phase:
+- After Shobapoti selects team members, open a Yes/No voting poll for all players.
+- Use green and red circular vote card design.
+- If Yes wins, proceed to mission/card submission.
+- If No wins, proposal fails and next player on the right becomes Shobapoti.
+- If 5 consecutive team proposals fail in the same chapter, Red/EIC team wins that chapter.
+
+Mission/card submission:
+- Only selected team members submit cards.
+- Green/Nawab team players can only submit Green/Success card.
+- Red/EIC team players can submit either Green/Success or Red/Fail card.
+- If any Red/Fail card is submitted, Red/EIC wins that chapter.
+- Exception: Chapter 4 for 7–10 players requires at least 2 Red/Fail cards for Red/EIC to win.
+- For 5–6 players in Chapter 4, only 1 Red/Fail card is enough.
+
+Winning rules:
+- Green/Nawab team wins if they win 4 chapters.
+- Red/EIC team wins if they win 3 chapters.
+- If final score is Green 3 and Red 2, then “Mir Modon” gets one final chance to identify “Mir Zafar”.
+- If Mir Modon selects Mir Zafar correctly, Green/Nawab wins.
+- If wrong, Red/EIC wins.
+
+Required screens:
+1. Splash screen
+2. Login / guest name screen
+3. Create room screen
+4. Join room screen
+5. Waiting lobby with player list and Ready button
+6. Character reveal screen
+7. Game board screen
+8. Shobapoti team selection modal
+9. Team approval voting modal
+10. Mission card submit screen
+11. Chapter result screen
+12. Final result screen
+13. Game history / summary screen
+
+Required backend/game-state models:
+- Room
+- Player
+- Character
+- TeamAssignment
+- Chapter
+- Proposal
+- Vote
+- MissionCard
+- GameResult
+
+Important:
+- All hidden roles must stay private.
+- Only allowed users should see secret information.
+- Validate everything from backend, not only frontend.
+- Prevent duplicate votes.
+- Prevent non-team members from submitting mission cards.
+- Prevent Green players from submitting Red/Fail card.
+- Handle disconnect/reconnect.
+- Keep complete game state in backend.
+- Use transactions/locking where needed.
+
+Please first analyze the uploaded images and my rules, then produce:
+1. Full game rule summary
+2. Database/schema design
+3. Backend API/WebSocket event design
+4. Android screen flow
+5. State machine for the game
+6. Implementation plan step-by-step
+7. Then generate the code files progressively.
+
+Do not skip the rules from the Bangla instruction images. If any rule is unclear, mark it as TODO and implement the core game first.
+
+Also add a Backend Admin Panel.
+
+Admin panel requirements:
+- Manage characters
+- Upload/change character images
+- Manage character power/ability text
+- Manage team type: Green/Nawab or Red/EIC
+- Manage card images: Success, Fail, Yes vote, No vote, loyalty cards, chapter cards
+- Manage animations
+- Manage room/game settings
+- Manage users and player profiles
+- View game history and match result
+- Manage point/reward system
+- Manage shop items
+
+Point system:
+- Players earn points after matches.
+- Points can be used to upgrade character cards.
+- Card upgrade can unlock:
+  - Better visual design
+  - Animation effects
+  - Entry animation
+  - Victory animation
+  - Special frame/border
+  - Profile badge
+- Points should not break game balance unless admin allows it.
+- Character power upgrades must be cosmetic by default.
+
+Shop system:
+- Players can purchase/unlock:
+  - Emoji
+  - Reaction stickers
+  - Card skins
+  - Character skins
+  - Profile frames
+  - Entry animations
+  - Victory animations
+  - War sound effects
+  - Polashi war themed backgrounds
+
+Game feeling/theme:
+- The game should feel like players entered the Battle of Plassey / Polashi war.
+- UI should use historical Bengali war style:
+  - Old paper texture
+  - Map background
+  - Nawab vs EIC color theme
+  - Sword/shield icons
+  - Ancient Bengali typography style
+  - Dramatic war sound effects
+  - Chapter intro animation
+  - Team reveal animation
+  - Victory/defeat animation
+
+Admin panel tech:
+- Build admin panel with Laravel/Filament or React Admin.
+- Backend must expose APIs for Android app.
+- Admin can update game assets without releasing a new Android app.
+- Store images/animations in cloud storage or local storage.
+- Android app should load active assets from backend.
+
+Important:
+- Paid/cosmetic items must not expose hidden roles.
+- Purchases must not give unfair gameplay advantage.
+- Admin should be able to enable/disable any item.
+- Add audit logs for admin changes.
+
+Now update the full project plan including:
+1. Admin panel modules
+2. Database schema for characters, cards, assets, points, shop, purchases, upgrades
+3. API endpoints
+4. Android integration flow
+5. Security rules
+6. Step-by-step implementation plan
