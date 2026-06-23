@@ -88,7 +88,7 @@ data class SpyView(
 data class SpyFinding(val targetId: String, val seenSide: String, val afterChapter: Int)
 
 @Serializable
-data class Session(val userId: String, val name: String)
+data class Session(val userId: String, val name: String, val token: String? = null)
 
 @Serializable
 data class RoomCreated(val roomId: String, val code: String? = null)

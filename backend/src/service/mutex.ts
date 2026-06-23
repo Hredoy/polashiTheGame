@@ -9,17 +9,16 @@ export class KeyedMutex {
     const prev = this.chains.get(key) ?? Promise.resolve();
     let release!: () => void;
     const gate = new Promise<void>((res) => (release = res));
-    this.chains.set(
-      key,
-      prev.then(() => gate),
-    );
+    // The chain tail others will wait on; keep a stable reference for cleanup.
+    const mine = prev.then(() => gate);
+    this.chains.set(key, mine);
     try {
       await prev.catch(() => undefined); // wait our turn; ignore predecessor errors
       return await fn();
     } finally {
       release();
-      // Clean up if no one queued behind us.
-      if (this.chains.get(key) === prev.then(() => gate)) this.chains.delete(key);
+      // Clean up only if no one queued behind us (tail is still ours).
+      if (this.chains.get(key) === mine) this.chains.delete(key);
     }
   }
 }

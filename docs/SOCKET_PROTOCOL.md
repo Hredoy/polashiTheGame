@@ -3,12 +3,18 @@
 Transport: Socket.IO. Server is authoritative; clients send intents and render the
 `room:state` they receive. All payloads are zod-validated server-side.
 
-## Handshake
+## Handshake & auth
 
-Connect with `auth: { userId?: string, name?: string }`. Guests omit `userId` and get one
-back. Server emits:
+Connect with `auth: { token?: string, name?: string }`. Server emits:
 
-- `session` → `{ userId, name }` — persist `userId` locally for reconnects.
+- `session` → `{ userId, name, token }`
+
+**Token-based identity (anti-impersonation).** On first connect omit `token`; the server
+mints a `userId` and returns a signed `token`. **Persist that token** (DataStore) and send it
+on every reconnect to keep the same `userId`. A client can **not** assert an arbitrary
+`userId` — identity comes only from a valid token (HMAC-signed with `SESSION_SECRET`).
+A forged/invalid token is ignored and a fresh guest id is minted. An auth failure
+disconnects the socket before any handler runs.
 
 ## Client → Server
 

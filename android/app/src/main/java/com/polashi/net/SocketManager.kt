@@ -30,11 +30,16 @@ class SocketManager {
         "session", "room:created", "room:state", "history:list", "error:game",
     )
 
-    fun connect(userId: String?, name: String) {
+    /**
+     * Connect with an optional saved session [token]. A valid token restores the same
+     * userId (anti-impersonation); omit it on first ever launch. The server returns a fresh
+     * token in the `session` event — persist it for next time.
+     */
+    fun connect(token: String?, name: String) {
         if (socket != null) return
         val opts = IO.Options().apply {
             auth = buildMap {
-                if (!userId.isNullOrBlank()) put("userId", userId)
+                if (!token.isNullOrBlank()) put("token", token)
                 put("name", name)
             }
             reconnection = true

@@ -1,5 +1,6 @@
 // Postgres-backed RoomStore with optimistic locking on rooms.version.
 
+import type pg from 'pg';
 import { getPool } from '../db/pool.js';
 import type { GameState } from '../game/types.js';
 import type {
@@ -11,8 +12,11 @@ import type {
 } from './store.js';
 
 export class PgStore implements RoomStore {
+  // Pool is injectable so tests can drive the real SQL against an in-memory Postgres.
+  constructor(private readonly pool: pg.Pool = getPool()) {}
+
   async upsertUser(user: UserRecord): Promise<void> {
-    await getPool().query(
+    await this.pool.query(
       `INSERT INTO users (id, name, is_guest) VALUES ($1, $2, $3)
        ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name`,
       [user.id, user.name, user.isGuest],
@@ -20,14 +24,14 @@ export class PgStore implements RoomStore {
   }
 
   async getUser(id: string): Promise<UserRecord | null> {
-    const r = await getPool().query(`SELECT id, name, is_guest FROM users WHERE id = $1`, [id]);
+    const r = await this.pool.query(`SELECT id, name, is_guest FROM users WHERE id = $1`, [id]);
     const row = r.rows[0];
     return row ? { id: row.id, name: row.name, isGuest: row.is_guest } : null;
   }
 
   async createRoom(record: RoomRecord): Promise<void> {
     const s = record.state;
-    await getPool().query(
+    await this.pool.query(
       `INSERT INTO rooms (id, code, host_id, status, player_count, state, version)
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       [s.roomId, record.code, s.hostId, s.status, s.players.length, JSON.stringify(s), s.version],
@@ -35,19 +39,19 @@ export class PgStore implements RoomStore {
   }
 
   async getById(roomId: string): Promise<RoomRecord | null> {
-    const r = await getPool().query(`SELECT code, state FROM rooms WHERE id = $1`, [roomId]);
+    const r = await this.pool.query(`SELECT code, state FROM rooms WHERE id = $1`, [roomId]);
     const row = r.rows[0];
     return row ? { code: row.code, state: row.state as GameState } : null;
   }
 
   async getByCode(code: string): Promise<RoomRecord | null> {
-    const r = await getPool().query(`SELECT code, state FROM rooms WHERE code = $1`, [code]);
+    const r = await this.pool.query(`SELECT code, state FROM rooms WHERE code = $1`, [code]);
     const row = r.rows[0];
     return row ? { code: row.code, state: row.state as GameState } : null;
   }
 
   async save(state: GameState, expectedVersion: number): Promise<boolean> {
-    const r = await getPool().query(
+    const r = await this.pool.query(
       `UPDATE rooms
          SET state = $2, status = $3, player_count = $4, host_id = $5,
              version = $6, updated_at = now()
@@ -66,7 +70,7 @@ export class PgStore implements RoomStore {
   }
 
   async saveResult(result: GameResultRecord): Promise<void> {
-    const pool = getPool();
+    const pool = this.pool;
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
@@ -104,7 +108,7 @@ export class PgStore implements RoomStore {
   }
 
   async userHistory(userId: string, limit: number): Promise<ResultSummary[]> {
-    const r = await getPool().query(
+    const r = await this.pool.query(
       `SELECT gr.room_id, gr.code, gr.winner_side, gr.finished_at,
               gp.character_key, gp.side, gp.won
          FROM game_participants gp

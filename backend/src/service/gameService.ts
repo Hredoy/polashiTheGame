@@ -2,6 +2,7 @@
 // Owns: room/code creation, the atomic load->reduce->save cycle, and result persistence.
 
 import { customAlphabet, nanoid } from 'nanoid';
+import { signToken, verifyToken } from '../auth/token.js';
 import { createRoom as engineCreateRoom, reduce, type Action } from '../game/engine.js';
 import { CHARACTER_SIDE, GameError, type GameState, type RoomSettings } from '../game/types.js';
 import type { GameResultRecord, RoomStore, UserRecord } from '../repo/store.js';
@@ -16,6 +17,28 @@ export class GameService {
 
   constructor(private store: RoomStore) {}
 
+  // Authenticate a socket handshake. A valid token proves ownership of its user id; any
+  // client-supplied id WITHOUT a matching token is ignored and a fresh guest is minted.
+  // Returns the trusted user plus the token to (re)store on the client.
+  async authenticate(
+    token: string | undefined,
+    name: string,
+  ): Promise<{ user: UserRecord; token: string }> {
+    const uid = verifyToken(token);
+    if (uid) {
+      let user = await this.store.getUser(uid);
+      if (!user) {
+        user = { id: uid, name, isGuest: true };
+        await this.store.upsertUser(user);
+      }
+      return { user, token: token! };
+    }
+    const user: UserRecord = { id: nanoid(), name, isGuest: true };
+    await this.store.upsertUser(user);
+    return { user, token: signToken(user.id) };
+  }
+
+  // Internal helper used by tests/services to mint or fetch a user without a token.
   async ensureUser(userId: string | undefined, name: string): Promise<UserRecord> {
     if (userId) {
       const existing = await this.store.getUser(userId);

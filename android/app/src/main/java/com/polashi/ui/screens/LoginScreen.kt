@@ -38,8 +38,8 @@ fun LoginScreen(vm: GameViewModel, onContinue: () -> Unit) {
         Button(
             enabled = name.isNotBlank(),
             onClick = {
-                // TODO: load saved userId from DataStore for reconnect continuity.
-                vm.connect(userId = null, name = name.trim())
+                // TODO: load a saved session token from DataStore for reconnect continuity.
+                vm.connect(token = null, name = name.trim())
                 onContinue()
             },
         ) { Text(if (connected) "Continue" else "Connect & Continue") }

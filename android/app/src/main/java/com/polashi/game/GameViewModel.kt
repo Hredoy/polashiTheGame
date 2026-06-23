@@ -54,7 +54,9 @@ class GameViewModel(
     }
 
     // ---- connection ----
-    fun connect(userId: String?, name: String) = socket.connect(userId, name)
+    // Pass a previously saved token to keep the same identity; null on first launch.
+    // After `session` arrives, persist session.value.token (DataStore) for next time.
+    fun connect(token: String?, name: String) = socket.connect(token, name)
 
     // ---- room lifecycle ----
     fun createRoom() = socket.emit("room:create")

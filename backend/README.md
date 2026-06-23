@@ -26,7 +26,7 @@ src/index.ts   Entry point
 
 ```bash
 npm install
-npm test                 # 19 tests: engine rules + service e2e
+npm test                 # 32 tests: engine, spy, service e2e, timeout, pg (pg-mem), socket e2e
 npm run dev              # in-memory store (no DB needed)
 
 # With Postgres:
@@ -39,7 +39,8 @@ npm run dev
 
 ## Socket API
 
-Handshake auth: `{ userId?, name }`. Server replies `session { userId, name }` (guests get an id).
+Handshake auth: `{ token?, name }`. Server replies `session { userId, name, token }`. Identity
+is proven by an HMAC-signed token (anti-impersonation); persist it and resend on reconnect.
 
 **Client → Server**
 

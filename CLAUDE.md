@@ -58,7 +58,9 @@ npm run dev                    # in-memory store, no DB needed; GET /health
 
 ## Current status
 
-- ✅ Backend core, Spy variant, disconnect-timeout — 25 tests green.
+- ✅ Backend core, Spy variant, disconnect-timeout, **token auth (anti-impersonation)** —
+  **32 tests green** (incl. Postgres SQL via pg-mem + socket-level e2e). Production-ready
+  for a first release.
 - 🚧 Android client — scaffold only.
 - ⬜ Admin panel, points, shop — design only (`docs/ADMIN_PLAN.md`).
 - See `docs/ROADMAP.md` for the prioritized next steps and open TODOs.

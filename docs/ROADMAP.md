@@ -10,7 +10,10 @@
 - **Transport**: Socket.IO — all events, per-recipient broadcast, reconnect.
 - **Spy variant**: full implementation + tests.
 - **Disconnect-timeout**: auto NO-vote / SUCCESS-card on stalled phases.
-- **Tests**: 25 passing (engine, spy, service e2e, timeout). Strict typecheck clean.
+- **Token auth**: HMAC-signed session tokens; clients cannot assert an arbitrary userId
+  (impersonation closed). Auth failure disconnects before any handler runs.
+- **Tests**: 32 passing — engine, spy, service e2e, timeout, **Postgres SQL via pg-mem**,
+  **socket-level e2e** (privacy + impersonation). Strict typecheck clean.
 - **Docs**: this set + `CLAUDE.md` + `backend/README.md`.
 
 ## In progress 🚧
@@ -30,6 +33,14 @@
   drafted in `docs/ADMIN_PLAN.md`. **Must never expose hidden roles or affect balance.**
 - **Asset delivery**: serve character/card/animation assets from backend so the app can
   update them without a release.
+
+## Remaining ops hardening (for scale, not blocking a first release)
+
+- **Multi-instance**: add the Socket.IO Redis adapter + move turn timers to a shared
+  scheduler (currently single-instance; in-memory timers are `unref`'d and lost on restart).
+- Rate limiting / payload size caps beyond zod; structured logging; env validation.
+- Room lifecycle: TTL / cleanup of stale rooms (they currently persist indefinitely).
+- Token expiry/rotation (tokens are currently long-lived and unexpiring).
 
 ## Open decisions (product owner)
 

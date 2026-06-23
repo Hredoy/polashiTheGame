@@ -46,28 +46,35 @@ async function broadcastViews(io: Server, roomId: string, service: GameService):
   clearTimer(roomId);
   if (state.status === 'VOTING' || state.status === 'MISSION') {
     const armedVersion = state.version;
-    timers.set(
-      roomId,
-      setTimeout(() => {
-        service
-          .forceTimeouts(roomId, armedVersion)
-          .then((next) => {
-            if (next) return broadcastViews(io, roomId, service);
-          })
-          .catch((e) => console.error('turn timeout failed', e));
-      }, TURN_TIMEOUT_MS),
-    );
+    const timer = setTimeout(() => {
+      service
+        .forceTimeouts(roomId, armedVersion)
+        .then((next) => {
+          if (next) return broadcastViews(io, roomId, service);
+        })
+        .catch((e) => console.error('turn timeout failed', e));
+    }, TURN_TIMEOUT_MS);
+    timer.unref?.(); // don't keep the process alive just for a pending turn timer
+    timers.set(roomId, timer);
   }
 }
 
 export function attachSockets(io: Server, service: GameService): void {
   io.on('connection', (socket: Socket) => {
-    // Handshake auth: { userId?, name }. Guests get a fresh id.
-    const auth = socket.handshake.auth as { userId?: string; name?: string };
+    // Handshake auth: { token?, name }. A valid token proves the user id; otherwise a fresh
+    // guest id is minted server-side. Clients can NOT assert an arbitrary userId.
+    const auth = socket.handshake.auth as { token?: string; name?: string };
+
+    // Resolves once the handshake auth has populated data.userId, so no handler acts on an
+    // unauthenticated socket (Socket.IO may deliver events before the async bootstrap below).
+    let markReady!: () => void;
+    const ready = new Promise<void>((res) => (markReady = res));
 
     const handle = (event: string, fn: (payload: any) => Promise<void>) => {
       socket.on(event, (payload) => {
-        fn(payload ?? {}).catch((err) => {
+        ready
+          .then(() => fn(payload ?? {}))
+          .catch((err) => {
           if (err instanceof GameError) {
             socket.emit('error:game', { code: err.code, message: err.message });
           } else if (err instanceof z.ZodError) {
@@ -96,11 +103,18 @@ export function attachSockets(io: Server, service: GameService): void {
 
     // ---- session bootstrap ----
     (async () => {
-      const user = await service.ensureUser(auth.userId, (auth.name ?? 'Player').slice(0, 24));
+      const { user, token } = await service.authenticate(
+        auth.token,
+        (auth.name ?? 'Player').slice(0, 24),
+      );
       data.userId = user.id;
       data.name = user.name;
-      socket.emit('session', { userId: user.id, name: user.name });
-    })().catch((e) => console.error('session init failed', e));
+      socket.emit('session', { userId: user.id, name: user.name, token });
+      markReady();
+    })().catch((e) => {
+      console.error('session init failed', e);
+      socket.disconnect(true); // never serve an unauthenticated socket
+    });
 
     // ---- room lifecycle ----
     handle('room:create', async () => {
