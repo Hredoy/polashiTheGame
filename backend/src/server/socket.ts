@@ -19,7 +19,21 @@ const settingsSchema = z.object({
   spyVariant: z.boolean(),
 });
 
-// Send each socket in the room its own filtered view of the latest state.
+const TURN_TIMEOUT_MS = Number(process.env.TURN_TIMEOUT_MS ?? 60_000);
+
+// Per-room turn timers. A stalled VOTING/MISSION phase auto-resolves so one missing
+// player can't freeze the game. Keyed by room; rescheduled on every state change.
+const timers = new Map<string, NodeJS.Timeout>();
+
+function clearTimer(roomId: string) {
+  const t = timers.get(roomId);
+  if (t) {
+    clearTimeout(t);
+    timers.delete(roomId);
+  }
+}
+
+// Send each socket in the room its own filtered view, then (re)arm the turn timer.
 async function broadcastViews(io: Server, roomId: string, service: GameService): Promise<void> {
   const state = await service.getState(roomId);
   if (!state) return;
@@ -27,6 +41,22 @@ async function broadcastViews(io: Server, roomId: string, service: GameService):
   for (const s of sockets) {
     const { userId } = s.data as SocketData;
     s.emit('room:state', buildPlayerView(state, userId));
+  }
+
+  clearTimer(roomId);
+  if (state.status === 'VOTING' || state.status === 'MISSION') {
+    const armedVersion = state.version;
+    timers.set(
+      roomId,
+      setTimeout(() => {
+        service
+          .forceTimeouts(roomId, armedVersion)
+          .then((next) => {
+            if (next) return broadcastViews(io, roomId, service);
+          })
+          .catch((e) => console.error('turn timeout failed', e));
+      }, TURN_TIMEOUT_MS),
+    );
   }
 }
 
@@ -135,6 +165,11 @@ export function attachSockets(io: Server, service: GameService): void {
 
     handle('chapter:advance', async () => {
       await apply({ type: 'ADVANCE_CHAPTER', actorId: data.userId });
+    });
+
+    handle('spy:investigate', async (p) => {
+      const { targetId } = z.object({ targetId: z.string() }).parse(p);
+      await apply({ type: 'INVESTIGATE', actorId: data.userId, targetId });
     });
 
     handle('final:guess', async (p) => {

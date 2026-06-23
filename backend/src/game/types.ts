@@ -89,6 +89,21 @@ export interface FinalGuessState {
   correct?: boolean;
 }
 
+// Spy (গুপ্তচর) variant. The active spy investigates one player's true allegiance after
+// chapters 2 and 3; the investigated player becomes the next spy. Three spies total.
+export interface SpyInvestigation {
+  afterChapter: number; // 2 or 3
+  spyId: string;
+  targetId: string;
+  seenSide: Side; // private to the spy
+}
+
+export interface SpyState {
+  currentSpyId: string;
+  pastSpyIds: string[]; // everyone who has held the spy role (cannot be investigated)
+  investigations: SpyInvestigation[];
+}
+
 export interface GameState {
   roomId: string;
   hostId: string; // player id of the room host (creator); may reassign if host leaves in lobby
@@ -107,6 +122,7 @@ export interface GameState {
   failedProposals: number; // consecutive failures in current chapter (0..5)
   wins: Record<Side, number>;
   finalGuess: FinalGuessState | null;
+  spy: SpyState | null; // non-null only when settings.spyVariant is enabled
   winner: Side | null;
 
   version: number; // optimistic-lock / event ordering

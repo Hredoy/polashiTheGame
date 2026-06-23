@@ -74,6 +74,39 @@ export class GameService {
     });
   }
 
+  // Resolve a stalled phase by auto-acting for players who haven't acted yet.
+  // Default policy (TODO confirm with design): auto NO-vote, auto SUCCESS-card.
+  // Returns the new state, or null if nothing was pending / phase changed meanwhile.
+  async forceTimeouts(roomId: string, expectedVersion: number): Promise<GameState | null> {
+    const rec = await this.store.getById(roomId);
+    if (!rec) return null;
+    const state = rec.state;
+    if (state.version !== expectedVersion) return null; // someone acted; the timer is stale
+
+    if (state.status === 'VOTING' && state.current) {
+      const voted = new Set(Object.keys(state.current.votes));
+      const missing = state.players.filter((p) => !voted.has(p.id));
+      let result = state;
+      for (const p of missing) {
+        result = await this.apply(roomId, { type: 'CAST_VOTE', actorId: p.id, value: 'NO' });
+      }
+      return result;
+    }
+
+    if (state.status === 'MISSION' && state.current) {
+      const chapter = state.chapters.find((c) => c.index === state.chapterIndex);
+      const submitted = new Set(Object.keys(chapter?.cards ?? {}));
+      const missing = state.current.memberIds.filter((id) => !submitted.has(id));
+      let result = state;
+      for (const id of missing) {
+        result = await this.apply(roomId, { type: 'SUBMIT_CARD', actorId: id, card: 'SUCCESS' });
+      }
+      return result;
+    }
+
+    return null;
+  }
+
   private async persistResult(code: string, state: GameState): Promise<void> {
     const result: GameResultRecord = {
       roomId: state.roomId,

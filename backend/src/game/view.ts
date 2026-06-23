@@ -38,6 +38,17 @@ export interface PublicProposal {
   tally?: { yes: number; no: number }; // revealed once voting completes
 }
 
+// Spy-variant info, filtered to the recipient. Non-spies only see whether a spy role
+// exists and who currently holds it (public token); investigation results are private.
+export interface SpyView {
+  enabled: boolean;
+  currentSpyId: string | null;
+  amCurrentSpy: boolean;
+  mustInvestigate: boolean; // true only for the current spy when an investigation is pending
+  eligibleTargetIds: string[]; // for the current spy: players not yet a spy
+  myFindings: { targetId: string; seenSide: Side; afterChapter: number }[]; // only my own
+}
+
 export interface PlayerView {
   roomId: string;
   status: GameState['status'];
@@ -51,6 +62,7 @@ export interface PlayerView {
   failedProposals: number;
   // Only meaningful to Mir Modon during FINAL_GUESS; null otherwise.
   finalGuess: { isMine: boolean; targetId?: string; correct?: boolean } | null;
+  spy: SpyView | null;
   winner: Side | null;
   // Revealed to everyone only at GAME_OVER.
   rolesReveal?: Record<string, CharacterKey>;
@@ -119,6 +131,28 @@ export function buildPlayerView(state: GameState, recipientId: string): PlayerVi
       }
     : null;
 
+  let spy: SpyView | null = null;
+  if (state.spy) {
+    const amCurrentSpy = state.spy.currentSpyId === recipientId;
+    const pendingChapter = [2, 3].includes(state.chapterIndex) && state.status === 'CHAPTER_RESULT';
+    const alreadyDone = state.spy.investigations.some((i) => i.afterChapter === state.chapterIndex);
+    spy = {
+      enabled: true,
+      currentSpyId: state.spy.currentSpyId,
+      amCurrentSpy,
+      mustInvestigate: amCurrentSpy && pendingChapter && !alreadyDone,
+      eligibleTargetIds: amCurrentSpy
+        ? state.players
+            .map((p) => p.id)
+            .filter((id) => id !== recipientId && !state.spy!.pastSpyIds.includes(id))
+        : [],
+      // Only the spy who performed an investigation sees its result.
+      myFindings: state.spy.investigations
+        .filter((i) => i.spyId === recipientId)
+        .map((i) => ({ targetId: i.targetId, seenSide: i.seenSide, afterChapter: i.afterChapter })),
+    };
+  }
+
   return {
     roomId: state.roomId,
     status: state.status,
@@ -131,6 +165,7 @@ export function buildPlayerView(state: GameState, recipientId: string): PlayerVi
     current,
     failedProposals: state.failedProposals,
     finalGuess,
+    spy,
     winner: state.winner,
     ...(isOver ? { rolesReveal: state.roles } : {}),
   };

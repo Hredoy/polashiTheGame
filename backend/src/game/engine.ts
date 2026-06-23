@@ -39,6 +39,7 @@ export type Action =
   | { type: 'CAST_VOTE'; actorId: string; value: VoteValue }
   | { type: 'SUBMIT_CARD'; actorId: string; card: MissionCard }
   | { type: 'ADVANCE_CHAPTER'; actorId: string }
+  | { type: 'INVESTIGATE'; actorId: string; targetId: string }
   | { type: 'FINAL_GUESS'; actorId: string; targetId: string };
 
 interface ReduceContext {
@@ -98,6 +99,7 @@ export function createLobby(
     failedProposals: 0,
     wins: { NAWAB: 0, EIC: 0 },
     finalGuess: null,
+    spy: null,
     winner: null,
     version: 0,
   };
@@ -147,9 +149,48 @@ export function reduce(state: GameState, action: Action, ctx: ReduceContext): Ga
       return submitCard(state, action.actorId, action.card);
     case 'ADVANCE_CHAPTER':
       return advanceChapter(state, action.actorId, ctx);
+    case 'INVESTIGATE':
+      return investigate(state, action.actorId, action.targetId);
     case 'FINAL_GUESS':
       return finalGuess(state, action.actorId, action.targetId);
   }
+}
+
+// Chapters after which the active spy must investigate before the game advances.
+const SPY_INVESTIGATION_CHAPTERS = [2, 3];
+
+function spyInvestigationPending(state: GameState): boolean {
+  if (!state.spy) return false;
+  if (!SPY_INVESTIGATION_CHAPTERS.includes(state.chapterIndex)) return false;
+  return !state.spy.investigations.some((i) => i.afterChapter === state.chapterIndex);
+}
+
+function investigate(state: GameState, actorId: string, targetId: string): GameState {
+  requirePhase(state, 'CHAPTER_RESULT');
+  if (!state.spy) throw new GameError('NO_SPY', 'Spy variant is not enabled');
+  if (!spyInvestigationPending(state)) {
+    throw new GameError('NO_INVESTIGATION', 'No investigation is pending this chapter');
+  }
+  if (actorId !== state.spy.currentSpyId) {
+    throw new GameError('NOT_SPY', 'Only the current spy may investigate');
+  }
+  if (targetId === actorId) throw new GameError('BAD_TARGET', 'Cannot investigate yourself');
+  if (state.spy.pastSpyIds.includes(targetId)) {
+    throw new GameError('PREV_SPY', 'Cannot investigate a previous spy');
+  }
+  if (!state.players.some((p) => p.id === targetId)) {
+    throw new GameError('BAD_TARGET', 'Unknown target');
+  }
+  const seenSide = sideOfRole(state, targetId);
+  const spy: typeof state.spy = {
+    currentSpyId: targetId,
+    pastSpyIds: [...state.spy.pastSpyIds, targetId],
+    investigations: [
+      ...state.spy.investigations,
+      { afterChapter: state.chapterIndex, spyId: actorId, targetId, seenSide },
+    ],
+  };
+  return bump({ ...state, spy });
 }
 
 function reindexSeats(players: PlayerState[]): PlayerState[] {
@@ -232,12 +273,21 @@ function startGame(state: GameState, actorId: string, ctx: ReduceContext): GameS
   const knowledge = computeKnowledge(roles);
   const shobapotiSeat = Math.floor(ctx.rng() * n);
 
+  // Spy variant: the player to the RIGHT of the first Shobapoti starts as the spy.
+  let spy: GameState['spy'] = null;
+  if (state.settings.spyVariant) {
+    const rightSeat = (shobapotiSeat - 1 + n) % n;
+    const firstSpyId = playerBySeat(state, rightSeat).id;
+    spy = { currentSpyId: firstSpyId, pastSpyIds: [firstSpyId], investigations: [] };
+  }
+
   return bump({
     ...state,
     status: 'ROLE_REVEAL',
     roles,
     knowledge,
     shobapotiSeat,
+    spy,
     players: state.players.map((p) => ({ ...p, ackedRole: false })),
   });
 }
@@ -386,6 +436,11 @@ function resolveChapter(
 function advanceChapter(state: GameState, actorId: string, _ctx: ReduceContext): GameState {
   requirePhase(state, 'CHAPTER_RESULT');
   requireHost(state, actorId);
+
+  // Spy variant: the active spy must investigate after chapters 2 and 3 before advancing.
+  if (spyInvestigationPending(state)) {
+    throw new GameError('SPY_PENDING', 'The spy must investigate before advancing');
+  }
 
   // Game-ending checks.
   if (state.wins.EIC >= WINS_REQUIRED) {
