@@ -26,6 +26,13 @@ import {
 } from './types.js';
 
 export type Action =
+  // Lobby actions
+  | { type: 'JOIN'; actorId: string; name: string }
+  | { type: 'LEAVE'; actorId: string }
+  | { type: 'SET_READY'; actorId: string; ready: boolean }
+  | { type: 'SET_CONNECTED'; actorId: string; connected: boolean }
+  | { type: 'SET_SETTINGS'; actorId: string; settings: RoomSettings }
+  // Game actions
   | { type: 'START_GAME'; actorId: string }
   | { type: 'ACK_ROLE'; actorId: string }
   | { type: 'PROPOSE_TEAM'; actorId: string; memberIds: string[] }
@@ -36,7 +43,10 @@ export type Action =
 
 interface ReduceContext {
   rng: Rng;
-  hostId: string; // only the host may START_GAME / ADVANCE_CHAPTER
+}
+
+function requireHost(state: GameState, actorId: string) {
+  if (actorId !== state.hostId) throw new GameError('NOT_HOST', 'Only the host may do this');
 }
 
 // ---------- helpers ----------
@@ -71,9 +81,11 @@ export function createLobby(
   roomId: string,
   players: PlayerState[],
   settings: RoomSettings,
+  hostId?: string,
 ): GameState {
   return {
     roomId,
+    hostId: hostId ?? players[0]?.id ?? '',
     status: 'LOBBY',
     players: [...players].sort((a, b) => a.seatIndex - b.seatIndex),
     settings,
@@ -91,10 +103,38 @@ export function createLobby(
   };
 }
 
+// Create an empty room with the host as the first seated player.
+export function createRoom(
+  roomId: string,
+  hostId: string,
+  hostName: string,
+  settings: RoomSettings,
+): GameState {
+  const host: PlayerState = {
+    id: hostId,
+    name: hostName,
+    seatIndex: 0,
+    ready: false,
+    connected: true,
+    ackedRole: false,
+  };
+  return createLobby(roomId, [host], settings, hostId);
+}
+
 // ---------- reducer ----------
 
 export function reduce(state: GameState, action: Action, ctx: ReduceContext): GameState {
   switch (action.type) {
+    case 'JOIN':
+      return join(state, action.actorId, action.name);
+    case 'LEAVE':
+      return leave(state, action.actorId);
+    case 'SET_READY':
+      return setReady(state, action.actorId, action.ready);
+    case 'SET_CONNECTED':
+      return setConnected(state, action.actorId, action.connected);
+    case 'SET_SETTINGS':
+      return setSettings(state, action.actorId, action.settings);
     case 'START_GAME':
       return startGame(state, action.actorId, ctx);
     case 'ACK_ROLE':
@@ -112,9 +152,72 @@ export function reduce(state: GameState, action: Action, ctx: ReduceContext): Ga
   }
 }
 
+function reindexSeats(players: PlayerState[]): PlayerState[] {
+  return [...players]
+    .sort((a, b) => a.seatIndex - b.seatIndex)
+    .map((p, i) => ({ ...p, seatIndex: i }));
+}
+
+function join(state: GameState, actorId: string, name: string): GameState {
+  requirePhase(state, 'LOBBY');
+  if (state.players.some((p) => p.id === actorId)) {
+    // Idempotent re-join (e.g. reopened app): just mark connected.
+    return bump({
+      ...state,
+      players: state.players.map((p) => (p.id === actorId ? { ...p, connected: true } : p)),
+    });
+  }
+  if (state.players.length >= MAX_PLAYERS) throw new GameError('ROOM_FULL', 'Room is full');
+  const player: PlayerState = {
+    id: actorId,
+    name,
+    seatIndex: state.players.length,
+    ready: false,
+    connected: true,
+    ackedRole: false,
+  };
+  return bump({ ...state, players: [...state.players, player] });
+}
+
+function leave(state: GameState, actorId: string): GameState {
+  if (state.status !== 'LOBBY') {
+    // Mid-game: never remove a seat (it would corrupt roles/turn order). Mark disconnected.
+    return setConnected(state, actorId, false);
+  }
+  const remaining = reindexSeats(state.players.filter((p) => p.id !== actorId));
+  let hostId = state.hostId;
+  if (actorId === hostId) hostId = remaining[0]?.id ?? ''; // reassign host
+  return bump({ ...state, players: remaining, hostId });
+}
+
+function setReady(state: GameState, actorId: string, ready: boolean): GameState {
+  requirePhase(state, 'LOBBY');
+  if (!state.players.some((p) => p.id === actorId)) throw new GameError('NOT_PLAYER', 'Not in room');
+  return bump({
+    ...state,
+    players: state.players.map((p) => (p.id === actorId ? { ...p, ready } : p)),
+  });
+}
+
+function setConnected(state: GameState, actorId: string, connected: boolean): GameState {
+  if (!state.players.some((p) => p.id === actorId)) return state; // ignore unknown sockets
+  return bump({
+    ...state,
+    players: state.players.map((p) => (p.id === actorId ? { ...p, connected } : p)),
+  });
+}
+
+function setSettings(state: GameState, actorId: string, settings: RoomSettings): GameState {
+  requirePhase(state, 'LOBBY');
+  requireHost(state, actorId);
+  const opt = validateOptionalCharacters(settings.optionalCharacters, state.players.length);
+  if (!opt.ok) throw new GameError('BAD_SETTINGS', opt.reason);
+  return bump({ ...state, settings });
+}
+
 function startGame(state: GameState, actorId: string, ctx: ReduceContext): GameState {
   requirePhase(state, 'LOBBY');
-  if (actorId !== ctx.hostId) throw new GameError('NOT_HOST', 'Only the host may start');
+  requireHost(state, actorId);
   const n = state.players.length;
   if (n < MIN_PLAYERS || n > MAX_PLAYERS) {
     throw new GameError('BAD_PLAYER_COUNT', `Need ${MIN_PLAYERS}-${MAX_PLAYERS} players, have ${n}`);
@@ -280,9 +383,9 @@ function resolveChapter(
   };
 }
 
-function advanceChapter(state: GameState, actorId: string, ctx: ReduceContext): GameState {
+function advanceChapter(state: GameState, actorId: string, _ctx: ReduceContext): GameState {
   requirePhase(state, 'CHAPTER_RESULT');
-  if (actorId !== ctx.hostId) throw new GameError('NOT_HOST', 'Only the host advances');
+  requireHost(state, actorId);
 
   // Game-ending checks.
   if (state.wins.EIC >= WINS_REQUIRED) {

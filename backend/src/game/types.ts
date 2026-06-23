@@ -91,6 +91,7 @@ export interface FinalGuessState {
 
 export interface GameState {
   roomId: string;
+  hostId: string; // player id of the room host (creator); may reassign if host leaves in lobby
   status: Phase;
   players: PlayerState[]; // ordered by seatIndex
   settings: RoomSettings;
