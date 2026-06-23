@@ -83,6 +83,23 @@ function passProposalWith(state: GameState, ctx: any, members: string[]): GameSt
   return state;
 }
 
+// Resolve the current chapter in favour of `side` (Nawab: all Success; EIC: one Betrayer).
+// Assumes <=6 player counts where a single Betrayer is enough (not a two-fail chapter).
+function resolveChapterFor(state: GameState, ctx: any, side: 'NAWAB' | 'EIC'): GameState {
+  const size = state.chapters.find((c) => c.index === state.chapterIndex)!.teamSize;
+  const eic = state.players.find((p) => sideOf(state, p.id) === 'EIC')!.id;
+  const team =
+    side === 'NAWAB'
+      ? nawabTeam(state, size)
+      : [eic, ...state.players.map((p) => p.id).filter((id) => id !== eic)].slice(0, size);
+  state = passProposalWith(state, ctx, team);
+  for (const id of state.current!.memberIds) {
+    const card = side === 'EIC' && id === eic ? 'BETRAYER' : 'SUCCESS';
+    state = run(state, ctx, { type: 'SUBMIT_CARD', actorId: id, card });
+  }
+  return state; // status CHAPTER_RESULT
+}
+
 describe('deck composition', () => {
   it('builds a correct base deck for each player count', () => {
     const sizes = { 5: [3, 2], 6: [4, 2], 7: [4, 3], 8: [5, 3], 9: [6, 3], 10: [6, 4] } as const;
@@ -142,42 +159,47 @@ describe('night reveal knowledge (rulebook image 7 script)', () => {
 });
 
 describe('full chapter flow', () => {
-  it('Nawab winning all missions triggers Mir Modon final guess', () => {
+  it('Nawab winning four chapters wins outright (no final guess)', () => {
     let { state, ctx } = startAndAck(5);
     expect(state.status).toBe('TEAM_PROPOSAL');
 
-    // Win chapters 1..3 with all-Nawab teams -> Nawab reaches 3 wins.
-    for (let ch = 1; ch <= 3; ch++) {
-      const size = state.chapters.find((c) => c.index === state.chapterIndex)!.teamSize;
-      state = passProposalWith(state, ctx, nawabTeam(state, size));
-      expect(state.status).toBe('MISSION');
-      for (const id of state.current!.memberIds) {
-        state = run(state, ctx, { type: 'SUBMIT_CARD', actorId: id, card: 'SUCCESS' });
-      }
+    for (let ch = 1; ch <= 4; ch++) {
+      state = resolveChapterFor(state, ctx, 'NAWAB');
       expect(state.status).toBe('CHAPTER_RESULT');
       state = run(state, ctx, { type: 'ADVANCE_CHAPTER', actorId: 'p0' });
     }
 
-    expect(state.wins.NAWAB).toBe(3);
+    expect(state.wins.NAWAB).toBe(4);
+    expect(state.status).toBe('GAME_OVER');
+    expect(state.winner).toBe('NAWAB');
+  });
+
+  it('a 3-2 finish sends Mir Modon to the final guess; a correct guess wins for Nawab', () => {
+    let { state, ctx } = startAndAck(5);
+    // Nawab takes chapters 1-3, EIC takes 4-5 -> final score 3-2.
+    for (const side of ['NAWAB', 'NAWAB', 'NAWAB', 'EIC', 'EIC'] as const) {
+      state = resolveChapterFor(state, ctx, side);
+      expect(state.status).toBe('CHAPTER_RESULT');
+      state = run(state, ctx, { type: 'ADVANCE_CHAPTER', actorId: 'p0' });
+    }
+
+    expect(state.wins).toEqual({ NAWAB: 3, EIC: 2 });
     expect(state.status).toBe('FINAL_GUESS');
 
-    const mm = Object.keys(state.roles).find((id) => state.roles[id] === 'MIR_MODON')!;
-    const mz = Object.keys(state.roles).find((id) => state.roles[id] === 'MIR_ZAFAR')!;
+    const mm = state.finalGuess!.mirModonId;
+    const mz = state.players.find((p) => state.roles[p.id] === 'MIR_ZAFAR')!.id;
     state = run(state, ctx, { type: 'FINAL_GUESS', actorId: mm, targetId: mz });
     expect(state.status).toBe('GAME_OVER');
     expect(state.winner).toBe('NAWAB');
   });
 
-  it('a wrong final guess hands the game to EIC', () => {
+  it('a wrong final guess at 3-2 hands the game to EIC', () => {
     let { state, ctx } = startAndAck(5);
-    for (let ch = 1; ch <= 3; ch++) {
-      const size = state.chapters.find((c) => c.index === state.chapterIndex)!.teamSize;
-      state = passProposalWith(state, ctx, nawabTeam(state, size));
-      for (const id of state.current!.memberIds) {
-        state = run(state, ctx, { type: 'SUBMIT_CARD', actorId: id, card: 'SUCCESS' });
-      }
+    for (const side of ['NAWAB', 'NAWAB', 'NAWAB', 'EIC', 'EIC'] as const) {
+      state = resolveChapterFor(state, ctx, side);
       state = run(state, ctx, { type: 'ADVANCE_CHAPTER', actorId: 'p0' });
     }
+    expect(state.status).toBe('FINAL_GUESS');
     const mm = state.finalGuess!.mirModonId;
     const notMz = state.players.find((p) => state.roles[p.id] !== 'MIR_ZAFAR' && p.id !== mm)!.id;
     state = run(state, ctx, { type: 'FINAL_GUESS', actorId: mm, targetId: notMz });

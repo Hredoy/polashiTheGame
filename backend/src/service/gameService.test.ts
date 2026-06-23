@@ -21,7 +21,7 @@ const nawabIds = (s: GameState) =>
   s.players.filter((p) => CHARACTER_SIDE[s.roles[p.id]!] === 'NAWAB').map((p) => p.id);
 
 describe('GameService end-to-end (memory store)', () => {
-  it('plays a full Nawab victory and records history', async () => {
+  it('plays a full Nawab victory (4 chapters) and records history', async () => {
     const svc = new GameService(new MemoryStore());
     const { roomId, ids } = await seatPlayers(svc, 5);
 
@@ -30,8 +30,8 @@ describe('GameService end-to-end (memory store)', () => {
     for (const id of ids) state = await svc.apply(roomId, { type: 'ACK_ROLE', actorId: id });
     expect(state.status).toBe('TEAM_PROPOSAL');
 
-    // Win 3 chapters with all-Nawab teams.
-    for (let ch = 1; ch <= 3; ch++) {
+    // Win 4 chapters with all-Nawab teams -> Nawab wins outright.
+    for (let ch = 1; ch <= 4; ch++) {
       const size = state.chapters.find((c) => c.index === state.chapterIndex)!.teamSize;
       const nawab = nawabIds(state);
       const team = [...nawab, ...state.players.map((p) => p.id)].slice(0, size);
@@ -48,15 +48,12 @@ describe('GameService end-to-end (memory store)', () => {
       state = await svc.apply(roomId, { type: 'ADVANCE_CHAPTER', actorId: ids[0]! });
     }
 
-    expect(state.status).toBe('FINAL_GUESS');
-    const mm = state.finalGuess!.mirModonId;
-    const mz = state.players.find((p) => state.roles[p.id] === 'MIR_ZAFAR')!.id;
-    state = await svc.apply(roomId, { type: 'FINAL_GUESS', actorId: mm, targetId: mz });
-
+    expect(state.wins.NAWAB).toBe(4);
     expect(state.status).toBe('GAME_OVER');
     expect(state.winner).toBe('NAWAB');
 
     // History persisted for every participant.
+    const mm = Object.keys(state.roles).find((id) => state.roles[id] === 'MIR_MODON')!;
     const hist = await svc.userHistory(mm);
     expect(hist).toHaveLength(1);
     expect(hist[0]!.winnerSide).toBe('NAWAB');

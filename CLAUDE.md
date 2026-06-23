@@ -65,11 +65,11 @@ npm run dev                    # in-memory store, no DB needed; GET /health
 - ⬜ Admin panel, points, shop — design only (`docs/ADMIN_PLAN.md`).
 - See `docs/ROADMAP.md` for the prioritized next steps and open TODOs.
 
-## Open rule decisions (implemented per rulebook; confirm with product owner)
+## Rule decisions (CONFIRMED with product owner 2026-06-23)
 
-1. Win = first to **3** chapters; Nawab's 3rd triggers Mir Modon's final guess (not 4).
+1. Win: **EIC at 3, Nawab at 4**; a 3-2 finish → Mir Modon's final guess (brief rule).
 2. Failed-vote leader rotation goes **left**.
-3. Tie vote = **fail**.
+3. Tie vote = **fail** (answer was garbled — assumed; reconfirm if needed).
 4. Timeout default: auto **NO**-vote / auto **SUCCESS**-card.
 
 Details + provenance: `docs/GAME_RULES.md`, memory `polashi-discrepancies`.

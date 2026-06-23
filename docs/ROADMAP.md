@@ -48,12 +48,14 @@
 Still optional later: payload size caps beyond zod, structured logging, env-var validation,
 a shared distributed lock if running many instances against one DB.
 
-## Open decisions (product owner)
+## Rule decisions — RESOLVED ✅ (2026-06-23)
 
-1. Win threshold 3 (rulebook) vs 4 (brief). Currently **3 + Mir Modon guess**.
-2. Leader rotation **left** (rulebook) vs right (brief).
-3. Timeout auto-action default: **NO-vote / SUCCESS-card**. Confirm.
-4. Spy variant: allow at <7 players? Currently allowed (rulebook only *recommends* 7+).
+1. Win: EIC at 3, **Nawab at 4**; 3-2 finish → Mir Modon final guess (brief rule). Done.
+2. Leader rotation: **left**. Done.
+3. Tie vote = fail (answer garbled — assumed; reconfirm if needed). Done.
+4. Timeout default: NO-vote / SUCCESS-card. Done.
+
+Still open: Spy variant allowed at <7 players? Currently allowed (rulebook only recommends 7+).
 
 ## Suggested next session
 

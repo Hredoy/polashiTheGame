@@ -6,7 +6,11 @@ import type { CharacterKey, Side } from './types.js';
 export const MIN_PLAYERS = 5;
 export const MAX_PLAYERS = 10;
 export const CHAPTER_COUNT = 5;
-export const WINS_REQUIRED = 3; // first faction to 3 chapter wins (rulebook image 2)
+// Win thresholds (confirmed with product owner, 2026-06-23 — brief rules over rulebook):
+// EIC wins outright at 3 chapter wins; Nawab wins outright at 4. If all 5 chapters are
+// played and neither threshold is met (a 3-2 Nawab lead), Mir Modon gets the final guess.
+export const EIC_WINS_REQUIRED = 3;
+export const NAWAB_WINS_REQUIRED = 4;
 export const MAX_FAILED_PROPOSALS = 5; // 5 consecutive failed proposals -> EIC wins the chapter
 
 // Faction sizes INCLUDING the signature roles (Mir Modon for Nawab, Mir Zafar for EIC).

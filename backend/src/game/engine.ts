@@ -4,10 +4,11 @@
 
 import {
   CHAPTER_COUNT,
+  EIC_WINS_REQUIRED,
   MAX_FAILED_PROPOSALS,
   MAX_PLAYERS,
   MIN_PLAYERS,
-  WINS_REQUIRED,
+  NAWAB_WINS_REQUIRED,
   teamSize,
   twoFailRequired,
   validateOptionalCharacters,
@@ -442,19 +443,19 @@ function advanceChapter(state: GameState, actorId: string, _ctx: ReduceContext):
     throw new GameError('SPY_PENDING', 'The spy must investigate before advancing');
   }
 
-  // Game-ending checks.
-  if (state.wins.EIC >= WINS_REQUIRED) {
+  // Game-ending checks (brief rules): EIC wins at 3, Nawab wins outright at 4. If all five
+  // chapters are played without either threshold met (a 3-2 Nawab lead), Mir Modon gets the
+  // final guess to decide it.
+  if (state.wins.EIC >= EIC_WINS_REQUIRED) {
     return bump({ ...state, status: 'GAME_OVER', winner: 'EIC' });
   }
-  if (state.wins.NAWAB >= WINS_REQUIRED) {
-    // Nawab reached the threshold -> Mir Modon must finger Mir Zafar.
-    const mirModonId = Object.keys(state.roles).find((id) => state.roles[id] === 'MIR_MODON')!;
-    return bump({ ...state, status: 'FINAL_GUESS', finalGuess: { mirModonId } });
+  if (state.wins.NAWAB >= NAWAB_WINS_REQUIRED) {
+    return bump({ ...state, status: 'GAME_OVER', winner: 'NAWAB' });
   }
   if (state.chapterIndex >= CHAPTER_COUNT) {
-    // All chapters played without a 3-win majority (only possible via odd rule edits) — safety net.
-    const winner: Side = state.wins.NAWAB > state.wins.EIC ? 'NAWAB' : 'EIC';
-    return bump({ ...state, status: 'GAME_OVER', winner });
+    // Nawab leads 3-2 after all chapters -> Mir Modon must finger Mir Zafar.
+    const mirModonId = Object.keys(state.roles).find((id) => state.roles[id] === 'MIR_MODON')!;
+    return bump({ ...state, status: 'FINAL_GUESS', finalGuess: { mirModonId } });
   }
   // Next chapter; Shobapoti passes to the left.
   const advanced = beginChapter(state, state.chapterIndex + 1);

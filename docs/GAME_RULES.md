@@ -66,11 +66,12 @@ Hidden-role mission game (Avalon/Resistance family), themed on the 1757 Battle o
    Success or Betrayer. Any Betrayer → EIC wins the chapter (two-fail chapters need ≥2).
 4. **Result** — chapter awarded; leader passes left for the next chapter.
 
-## 6. Win conditions
+## 6. Win conditions (confirmed with product owner — brief rules)
 
-- First faction to **3 chapter wins** ends the chapter loop.
-- EIC reaching 3 (or 5 failed proposals in a chapter) → **EIC wins**.
-- Nawab reaching 3 → **Mir Modon final guess**: names a player as Mir Zafar.
+- **EIC wins outright at 3 chapter wins** (or 5 failed proposals in a chapter).
+- **Nawab wins outright at 4 chapter wins.**
+- If all 5 chapters are played and neither threshold is met — i.e. a final **Nawab 3 – EIC 2**
+  — Mir Modon gets a **final guess**, naming a player as Mir Zafar:
   - Correct → Nawab wins. Wrong → EIC wins.
 
 ## 7. Spy variant (গুপ্তচর, optional, best at 7+ players)
@@ -81,14 +82,14 @@ Hidden-role mission game (Avalon/Resistance family), themed on the 1757 Battle o
 - **3 spies total**, once each; a spy cannot investigate a previous spy. Spies may lie.
 - Chapter advance is blocked until the pending investigation is made.
 
-## 8. Discrepancies (brief vs rulebook — implemented per rulebook)
+## 8. Rule decisions (confirmed with product owner 2026-06-23)
 
-| # | Topic | Brief | Rulebook (used) |
-|--|--|--|--|
-| 1 | Win threshold | Nawab needs 4 | First to 3 + Mir Modon guess |
-| 2 | Leader rotation | right | left |
-| 3 | Tie vote | — | counts as fail |
-| 4 | Timeout default | — | auto NO-vote / SUCCESS-card (TODO confirm) |
+| # | Topic | Decision |
+|--|--|--|
+| 1 | Win threshold | **Brief**: Nawab needs 4, EIC needs 3; a 3-2 finish → Mir Modon guess |
+| 2 | Leader rotation | **Rulebook**: to the left |
+| 3 | Tie vote | **Rulebook**: tie counts as fail (answer was unclear — assumed; confirm) |
+| 4 | Timeout default | auto NO-vote / auto SUCCESS-card |
 
 ## 9. Components (from images, for the admin asset catalogue)
 

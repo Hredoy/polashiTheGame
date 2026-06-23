@@ -61,8 +61,12 @@ fun ChapterResultContent(
                 Text("You learned: $name plays for ${Characters.sideLabel(f.seenSide)}", color = Characters.sideColor(f.seenSide))
             }
             if (amHost) {
+                // Game ends when EIC reaches 3, Nawab reaches 4, or all 5 chapters are played.
+                val nawab = view.wins["NAWAB"] ?: 0
+                val eic = view.wins["EIC"] ?: 0
+                val decisive = eic >= 3 || nawab >= 4 || view.chapterIndex >= 5
                 Button(onClick = onAdvance, modifier = Modifier.fillMaxWidth()) {
-                    Text(if (view.chapterIndex >= 5 || view.wins.values.any { it >= 3 }) "Continue" else "Next chapter")
+                    Text(if (decisive) "Continue" else "Next chapter")
                 }
             } else {
                 Text("Waiting for the host…", style = MaterialTheme.typography.bodySmall)
