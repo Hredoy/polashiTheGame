@@ -31,7 +31,7 @@ export class GameService {
         user = { id: uid, name, isGuest: true };
         await this.store.upsertUser(user);
       }
-      return { user, token: token! };
+      return { user, token: signToken(user.id) }; // rotate: fresh expiry each connect
     }
     const user: UserRecord = { id: nanoid(), name, isGuest: true };
     await this.store.upsertUser(user);
@@ -97,14 +97,21 @@ export class GameService {
     });
   }
 
+  // Janitor support: rooms whose VOTING/MISSION turn has stalled, and stale-room cleanup.
+  roomsNeedingTimeout(olderThanMs: number) {
+    return this.store.roomsNeedingTimeout(['VOTING', 'MISSION'], olderThanMs);
+  }
+  cleanupStaleRooms(olderThanMs: number) {
+    return this.store.deleteStaleRooms(['GAME_OVER', 'LOBBY'], olderThanMs);
+  }
+
   // Resolve a stalled phase by auto-acting for players who haven't acted yet.
   // Default policy (TODO confirm with design): auto NO-vote, auto SUCCESS-card.
   // Returns the new state, or null if nothing was pending / phase changed meanwhile.
-  async forceTimeouts(roomId: string, expectedVersion: number): Promise<GameState | null> {
+  async forceTimeouts(roomId: string): Promise<GameState | null> {
     const rec = await this.store.getById(roomId);
     if (!rec) return null;
     const state = rec.state;
-    if (state.version !== expectedVersion) return null; // someone acted; the timer is stale
 
     if (state.status === 'VOTING' && state.current) {
       const voted = new Set(Object.keys(state.current.votes));

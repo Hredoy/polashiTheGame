@@ -54,4 +54,9 @@ export interface RoomStore {
 
   saveResult(result: GameResultRecord): Promise<void>;
   userHistory(userId: string, limit: number): Promise<ResultSummary[]>;
+
+  /** Room ids in one of `statuses` not updated within `olderThanMs` (stalled turns). */
+  roomsNeedingTimeout(statuses: string[], olderThanMs: number): Promise<string[]>;
+  /** Delete rooms in one of `statuses` not updated within `olderThanMs`. Returns count. */
+  deleteStaleRooms(statuses: string[], olderThanMs: number): Promise<number>;
 }

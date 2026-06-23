@@ -33,7 +33,7 @@ describe('disconnect / turn timeout policy', () => {
     });
     // Only one player votes, then the timer fires.
     state = await svc.apply(roomId, { type: 'CAST_VOTE', actorId: ids[0]!, value: 'YES' });
-    const resolved = await svc.forceTimeouts(roomId, state.version);
+    const resolved = await svc.forceTimeouts(roomId);
     // Missing votes counted as NO -> proposal fails -> back to TEAM_PROPOSAL (or chapter loss).
     expect(resolved).not.toBeNull();
     expect(['TEAM_PROPOSAL', 'CHAPTER_RESULT']).toContain(resolved!.status);
@@ -47,14 +47,13 @@ describe('disconnect / turn timeout policy', () => {
     state = await svc.apply(roomId, { type: 'PROPOSE_TEAM', actorId: shobapotiId(state), memberIds: team });
     for (const p of state.players) state = await svc.apply(roomId, { type: 'CAST_VOTE', actorId: p.id, value: 'YES' });
     expect(state.status).toBe('MISSION');
-    // Nobody submits; timer fires -> all auto SUCCESS -> chapter resolves.
-    const resolved = await svc.forceTimeouts(roomId, state.version);
+    // Nobody submits; janitor fires -> all auto SUCCESS -> chapter resolves.
+    const resolved = await svc.forceTimeouts(roomId);
     expect(resolved!.status).toBe('CHAPTER_RESULT');
   });
 
-  it('does nothing when the armed version is stale', async () => {
-    const { svc, roomId } = await startedGame(5);
-    const state = (await svc.getState(roomId))!;
-    expect(await svc.forceTimeouts(roomId, state.version - 1)).toBeNull();
+  it('does nothing when no phase is pending', async () => {
+    const { svc, roomId } = await startedGame(5); // ROLE_REVEAL acked -> TEAM_PROPOSAL
+    expect(await svc.forceTimeouts(roomId)).toBeNull();
   });
 });

@@ -6,6 +6,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
 const SECRET = process.env.SESSION_SECRET ?? 'dev-secret-change-me';
+const DEFAULT_TTL_MS = Number(process.env.SESSION_TTL_MS ?? 30 * 24 * 60 * 60 * 1000); // 30 days
 
 function b64url(buf: Buffer | string): string {
   return Buffer.from(buf).toString('base64url');
@@ -15,8 +16,11 @@ function sign(payloadB64: string): string {
   return createHmac('sha256', SECRET).update(payloadB64).digest('base64url');
 }
 
-export function signToken(userId: string): string {
-  const payload = b64url(JSON.stringify({ uid: userId, iat: Date.now() }));
+// Tokens embed an expiry. Re-issue on every connect (rotation) so an old leaked token's
+// window stays bounded while the user keeps a stable id.
+export function signToken(userId: string, ttlMs = DEFAULT_TTL_MS): string {
+  const now = Date.now();
+  const payload = b64url(JSON.stringify({ uid: userId, iat: now, exp: now + ttlMs }));
   return `${payload}.${sign(payload)}`;
 }
 
@@ -32,7 +36,9 @@ export function verifyToken(token: string | undefined | null): string | null {
   if (!timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
   try {
     const parsed = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
-    return typeof parsed.uid === 'string' ? parsed.uid : null;
+    if (typeof parsed.uid !== 'string') return null;
+    if (typeof parsed.exp === 'number' && Date.now() > parsed.exp) return null; // expired
+    return parsed.uid;
   } catch {
     return null;
   }

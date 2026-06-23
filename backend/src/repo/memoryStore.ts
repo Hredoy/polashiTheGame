@@ -14,7 +14,10 @@ export class MemoryStore implements RoomStore {
   private users = new Map<string, UserRecord>();
   private rooms = new Map<string, RoomRecord>(); // by roomId
   private byCode = new Map<string, string>(); // code -> roomId
+  private updatedAt = new Map<string, number>(); // roomId -> last write epoch ms
   private results: (GameResultRecord & { finishedAt: string })[] = [];
+
+  constructor(private readonly now: () => number = Date.now) {}
 
   async upsertUser(user: UserRecord): Promise<void> {
     this.users.set(user.id, { ...user });
@@ -26,6 +29,7 @@ export class MemoryStore implements RoomStore {
   async createRoom(record: RoomRecord): Promise<void> {
     this.rooms.set(record.state.roomId, structuredClone(record));
     this.byCode.set(record.code, record.state.roomId);
+    this.updatedAt.set(record.state.roomId, this.now());
   }
   async getById(roomId: string): Promise<RoomRecord | null> {
     const r = this.rooms.get(roomId);
@@ -40,7 +44,33 @@ export class MemoryStore implements RoomStore {
     if (!existing) return false;
     if (existing.state.version !== expectedVersion) return false; // optimistic conflict
     this.rooms.set(state.roomId, { code: existing.code, state: structuredClone(state) });
+    this.updatedAt.set(state.roomId, this.now());
     return true;
+  }
+
+  async roomsNeedingTimeout(statuses: string[], olderThanMs: number): Promise<string[]> {
+    const cutoff = this.now() - olderThanMs;
+    const out: string[] = [];
+    for (const [id, rec] of this.rooms) {
+      if (statuses.includes(rec.state.status) && (this.updatedAt.get(id) ?? 0) <= cutoff) {
+        out.push(id);
+      }
+    }
+    return out;
+  }
+
+  async deleteStaleRooms(statuses: string[], olderThanMs: number): Promise<number> {
+    const cutoff = this.now() - olderThanMs;
+    let n = 0;
+    for (const [id, rec] of [...this.rooms]) {
+      if (statuses.includes(rec.state.status) && (this.updatedAt.get(id) ?? 0) <= cutoff) {
+        this.rooms.delete(id);
+        this.byCode.delete(rec.code);
+        this.updatedAt.delete(id);
+        n++;
+      }
+    }
+    return n;
   }
 
   async saveResult(result: GameResultRecord): Promise<void> {

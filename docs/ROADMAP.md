@@ -34,13 +34,17 @@
 - **Asset delivery**: serve character/card/animation assets from backend so the app can
   update them without a release.
 
-## Remaining ops hardening (for scale, not blocking a first release)
+## Ops hardening — DONE ✅
 
-- **Multi-instance**: add the Socket.IO Redis adapter + move turn timers to a shared
-  scheduler (currently single-instance; in-memory timers are `unref`'d and lost on restart).
-- Rate limiting / payload size caps beyond zod; structured logging; env validation.
-- Room lifecycle: TTL / cleanup of stale rooms (they currently persist indefinitely).
-- Token expiry/rotation (tokens are currently long-lived and unexpiring).
+- **Multi-instance**: Socket.IO **Redis adapter** wired conditionally on `REDIS_URL`.
+- **Durable timeouts**: replaced per-room in-memory timers with a **janitor** sweep
+  (restart-safe, multi-instance-tolerant; uses `rooms.updated_at`).
+- **Room TTL**: janitor deletes idle `GAME_OVER`/`LOBBY` rooms (`ROOM_TTL_MS`).
+- **Rate limiting**: per-socket token bucket; throttled events get `error:game RATE_LIMITED`.
+- **Token expiry + rotation**: tokens carry an `exp` (`SESSION_TTL_MS`) and rotate each connect.
+
+Still optional later: payload size caps beyond zod, structured logging, env-var validation,
+a shared distributed lock if running many instances against one DB.
 
 ## Open decisions (product owner)
 

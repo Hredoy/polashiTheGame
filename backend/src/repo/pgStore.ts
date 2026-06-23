@@ -107,6 +107,26 @@ export class PgStore implements RoomStore {
     }
   }
 
+  async roomsNeedingTimeout(statuses: string[], olderThanMs: number): Promise<string[]> {
+    const r = await this.pool.query(
+      `SELECT id FROM rooms
+        WHERE status = ANY($1)
+          AND updated_at < now() - ($2::double precision * interval '1 millisecond')`,
+      [statuses, olderThanMs],
+    );
+    return r.rows.map((row) => row.id as string);
+  }
+
+  async deleteStaleRooms(statuses: string[], olderThanMs: number): Promise<number> {
+    const r = await this.pool.query(
+      `DELETE FROM rooms
+        WHERE status = ANY($1)
+          AND updated_at < now() - ($2::double precision * interval '1 millisecond')`,
+      [statuses, olderThanMs],
+    );
+    return r.rowCount ?? 0;
+  }
+
   async userHistory(userId: string, limit: number): Promise<ResultSummary[]> {
     const r = await this.pool.query(
       `SELECT gr.room_id, gr.code, gr.winner_side, gr.finished_at,

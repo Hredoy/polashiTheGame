@@ -58,10 +58,10 @@ npm run dev                    # in-memory store, no DB needed; GET /health
 
 ## Current status
 
-- ✅ Backend core, Spy variant, disconnect-timeout, **token auth (anti-impersonation)** —
-  **32 tests green** (incl. Postgres SQL via pg-mem + socket-level e2e). Production-ready
-  for a first release.
-- 🚧 Android client — scaffold only.
+- ✅ Backend core, Spy variant, token auth, **ops hardening** (Redis adapter, janitor-based
+  durable timeouts + room TTL, rate limiting, token expiry/rotation) — **35 tests green**
+  (incl. Postgres SQL via pg-mem + socket-level e2e). Production-ready.
+- 🚧 Android client — scaffold + in-game screens in progress.
 - ⬜ Admin panel, points, shop — design only (`docs/ADMIN_PLAN.md`).
 - See `docs/ROADMAP.md` for the prioritized next steps and open TODOs.
 

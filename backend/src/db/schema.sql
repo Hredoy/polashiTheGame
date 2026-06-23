@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS rooms (
 );
 CREATE INDEX IF NOT EXISTS idx_rooms_code ON rooms (code);
 CREATE INDEX IF NOT EXISTS idx_rooms_status ON rooms (status);
+-- Supports the janitor's stalled-turn / stale-room sweeps.
+CREATE INDEX IF NOT EXISTS idx_rooms_status_updated ON rooms (status, updated_at);
 
 CREATE TABLE IF NOT EXISTS game_results (
   id            BIGSERIAL PRIMARY KEY,

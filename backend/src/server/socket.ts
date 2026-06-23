@@ -7,6 +7,7 @@ import type { Action } from '../game/engine.js';
 import { GameError, OPTIONAL_CHARACTERS, type RoomSettings } from '../game/types.js';
 import { buildPlayerView } from '../game/view.js';
 import type { GameService } from '../service/gameService.js';
+import { RateLimiter } from './rateLimit.js';
 
 interface SocketData {
   userId: string;
@@ -19,21 +20,8 @@ const settingsSchema = z.object({
   spyVariant: z.boolean(),
 });
 
-const TURN_TIMEOUT_MS = Number(process.env.TURN_TIMEOUT_MS ?? 60_000);
-
-// Per-room turn timers. A stalled VOTING/MISSION phase auto-resolves so one missing
-// player can't freeze the game. Keyed by room; rescheduled on every state change.
-const timers = new Map<string, NodeJS.Timeout>();
-
-function clearTimer(roomId: string) {
-  const t = timers.get(roomId);
-  if (t) {
-    clearTimeout(t);
-    timers.delete(roomId);
-  }
-}
-
-// Send each socket in the room its own filtered view, then (re)arm the turn timer.
+// Send each socket in the room its own filtered view. Stalled-turn resolution is handled
+// out-of-band by the janitor (see server/janitor.ts), which calls broadcastRoom on change.
 async function broadcastViews(io: Server, roomId: string, service: GameService): Promise<void> {
   const state = await service.getState(roomId);
   if (!state) return;
@@ -42,24 +30,16 @@ async function broadcastViews(io: Server, roomId: string, service: GameService):
     const { userId } = s.data as SocketData;
     s.emit('room:state', buildPlayerView(state, userId));
   }
+}
 
-  clearTimer(roomId);
-  if (state.status === 'VOTING' || state.status === 'MISSION') {
-    const armedVersion = state.version;
-    const timer = setTimeout(() => {
-      service
-        .forceTimeouts(roomId, armedVersion)
-        .then((next) => {
-          if (next) return broadcastViews(io, roomId, service);
-        })
-        .catch((e) => console.error('turn timeout failed', e));
-    }, TURN_TIMEOUT_MS);
-    timer.unref?.(); // don't keep the process alive just for a pending turn timer
-    timers.set(roomId, timer);
-  }
+// Re-broadcast a room's views (used by the janitor after it auto-resolves a stalled turn).
+export function broadcastRoom(io: Server, service: GameService, roomId: string): Promise<void> {
+  return broadcastViews(io, roomId, service);
 }
 
 export function attachSockets(io: Server, service: GameService): void {
+  const limiter = new RateLimiter();
+
   io.on('connection', (socket: Socket) => {
     // Handshake auth: { token?, name }. A valid token proves the user id; otherwise a fresh
     // guest id is minted server-side. Clients can NOT assert an arbitrary userId.
@@ -72,6 +52,10 @@ export function attachSockets(io: Server, service: GameService): void {
 
     const handle = (event: string, fn: (payload: any) => Promise<void>) => {
       socket.on(event, (payload) => {
+        if (!limiter.take(socket.id)) {
+          socket.emit('error:game', { code: 'RATE_LIMITED', message: 'Too many requests' });
+          return;
+        }
         ready
           .then(() => fn(payload ?? {}))
           .catch((err) => {
@@ -197,6 +181,7 @@ export function attachSockets(io: Server, service: GameService): void {
     });
 
     socket.on('disconnect', () => {
+      limiter.forget(socket.id);
       const roomId = data.roomId;
       if (!roomId) return;
       service
