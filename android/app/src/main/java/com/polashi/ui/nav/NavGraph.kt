@@ -8,8 +8,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.polashi.game.GameViewModel
+import com.polashi.ui.screens.GameScreen
+import com.polashi.ui.screens.HistoryScreen
 import com.polashi.ui.screens.HomeScreen
-import com.polashi.ui.screens.LobbyScreen
 import com.polashi.ui.screens.LoginScreen
 import com.polashi.ui.screens.SplashScreen
 
@@ -18,6 +19,7 @@ object Routes {
     const val LOGIN = "login"
     const val HOME = "home"
     const val GAME = "game" // Lobby + in-game; driven by PlayerView.status
+    const val HISTORY = "history"
 }
 
 /**
@@ -40,6 +42,9 @@ fun PolashiNavGraph(vm: GameViewModel) {
             LoginScreen(vm, onContinue = { nav.navigate(Routes.HOME) })
         }
         composable(Routes.HOME) { HomeScreen(vm) }
-        composable(Routes.GAME) { LobbyScreen(vm) } // TODO: GameBoardScreen dispatches by status
+        composable(Routes.GAME) {
+            GameScreen(vm, onViewHistory = { nav.navigate(Routes.HISTORY) })
+        }
+        composable(Routes.HISTORY) { HistoryScreen(vm) }
     }
 }

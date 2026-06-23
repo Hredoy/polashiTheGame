@@ -49,7 +49,8 @@ class SocketManager {
             on(Socket.EVENT_DISCONNECT) { _connected.tryEmit(false) }
             serverEvents.forEach { ev ->
                 on(ev) { args ->
-                    val payload = (args.getOrNull(0) as? JSONObject)?.toString() ?: "{}"
+                    // Payload may be a JSONObject or JSONArray (history:list); both stringify to JSON.
+                    val payload = args.getOrNull(0)?.toString() ?: "{}"
                     _events.tryEmit(ev to payload)
                 }
             }

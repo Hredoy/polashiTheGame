@@ -26,17 +26,22 @@ ui/
 | 3 | Home (Create/Join) | — | scaffold |
 | 4 | Join room (enter code) | — | scaffold |
 | 5 | Lobby (players + Ready) | `LOBBY` | scaffold |
-| 6 | Character reveal | `ROLE_REVEAL` (`self`) | TODO |
-| 7 | Game board | all in-game phases | TODO |
-| 8 | Make Team modal | `TEAM_PROPOSAL` + `isShobapoti` | TODO |
-| 9 | Voting modal | `VOTING` | TODO |
-| 10 | Mission submit | `MISSION` + in `memberIds` | TODO |
-| 11 | Chapter result | `CHAPTER_RESULT` | TODO |
-| 12 | Final result | `GAME_OVER` (`rolesReveal`) | TODO |
-| 13 | History / summary | `history:list` | TODO |
+| 6 | Character reveal | `ROLE_REVEAL` (`self`) | ✅ done |
+| 7 | Game board | all in-game phases | ✅ done |
+| 8 | Make Team | `TEAM_PROPOSAL` + `isShobapoti` | ✅ done |
+| 9 | Voting | `VOTING` | ✅ done |
+| 10 | Mission submit | `MISSION` + in `memberIds` | ✅ done |
+| 11 | Chapter result | `CHAPTER_RESULT` | ✅ done |
+| 12 | Final result | `GAME_OVER` (`rolesReveal`) | ✅ done |
+| 13 | History / summary | `history:list` | ✅ done |
 
-Plus Spy-variant UI: investigate prompt when `spy.mustInvestigate`, findings panel from
-`spy.myFindings`.
+Spy-variant UI: investigate prompt when `spy.mustInvestigate`, findings shown from
+`spy.myFindings` — ✅ done (in `ChapterResultContent`).
+
+> All in-game screens are implemented as a pure render of `PlayerView` in
+> `ui/screens/GamePhases.kt`, `GameEndPhases.kt`, `GameBoardScreen.kt`, `GameScreen.kt`,
+> `HistoryScreen.kt`. **Not yet compiled** in Android Studio (no SDK in the build env) — a
+> sync/build pass + theming/animation polish is the remaining work.
 
 ## State flow
 

@@ -3,6 +3,7 @@ package com.polashi.game
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.polashi.model.GameError
+import com.polashi.model.HistoryItem
 import com.polashi.model.PlayerView
 import com.polashi.model.RoomCreated
 import com.polashi.model.Session
@@ -36,6 +37,9 @@ class GameViewModel(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
 
+    private val _history = MutableStateFlow<List<HistoryItem>>(emptyList())
+    val history: StateFlow<List<HistoryItem>> = _history
+
     val connected: StateFlow<Boolean> get() = socket.connected
 
     init {
@@ -48,6 +52,8 @@ class GameViewModel(
                         json.decodeFromString<RoomCreated>(raw).code
                     "error:game" -> _error.value =
                         json.decodeFromString<GameError>(raw).message
+                    "history:list" -> _history.value =
+                        json.decodeFromString<List<HistoryItem>>(raw)
                 }
             }
         }

@@ -18,11 +18,13 @@
 
 ## In progress 🚧
 
-- **Android client** (`android/`): scaffold only — see `docs/ANDROID_PLAN.md`.
-  - Done in scaffold: Gradle config, socket client, `PlayerView` models, `GameViewModel`,
-    navigation, Splash/Login/Home/Lobby screens.
-  - Remaining: RoleReveal, GameBoard, MakeTeam, Voting, Mission, ChapterResult,
-    FinalResult, History screens; theming/animations; asset loading.
+- **Android client** (`android/`): all 13 screens + Spy UI implemented as a pure render of
+  `PlayerView` — see `docs/ANDROID_PLAN.md`.
+  - Done: Gradle config, socket client, models, `GameViewModel`, navigation, and every
+    screen (Splash/Login/Home/Lobby + RoleReveal/Board/MakeTeam/Voting/Mission/
+    ChapterResult/FinalGuess/GameOver/History).
+  - Remaining: **compile/sync in Android Studio** (no SDK in this build env), theming &
+    animations polish, DataStore token persistence, asset-catalogue loading.
 
 ## Not started ⬜
 

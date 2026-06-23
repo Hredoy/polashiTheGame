@@ -18,17 +18,20 @@ emission. No game rules live here.
 
 ## Implemented
 
-- `net/SocketManager` — socket.io-client wrapper (auth, reconnect, event flow)
-- `model/PlayerView` — serializable mirror of the server view
-- `game/GameViewModel` — holds `StateFlow<PlayerView?>`, exposes intent methods
-- `ui/` — theme, nav, screens: Splash, Login, Home (create/join), Lobby
+- `net/SocketManager` — socket.io-client wrapper (token auth, reconnect, event flow)
+- `model/PlayerView` — serializable mirror of the server view (+ `HistoryItem`)
+- `game/GameViewModel` — `StateFlow<PlayerView?>` + history/error/session + all intents
+- `ui/` — theme, nav, components (ChapterTrack/ScoreBar/PlayerList), and **all screens**:
+  Splash, Login, Home, Lobby, RoleReveal, GameBoard (phase dispatcher), MakeTeam, Voting,
+  Mission, ChapterResult (+ Spy investigate), FinalGuess, GameOver, History.
+
+The board (`GameBoardScreen`) renders a persistent score + chapter track and switches phase
+content by `PlayerView.status`. Errors surface as a snackbar in `GameScreen`.
 
 ## TODO (next session)
 
-- `GameBoardScreen` that dispatches sub-UI by `PlayerView.status`, with modals for
-  Make-Team / Voting / Mission.
-- RoleReveal, ChapterResult, FinalResult, History screens.
-- Spy-variant UI (`spy.mustInvestigate`, `spy.myFindings`).
-- DataStore persistence of `userId` + last `roomId` for reconnect (`room:resume`).
+- **Compile/sync in Android Studio** — this code was written without an Android SDK in the
+  build env, so it has not been run through the compiler yet; expect minor fixes.
+- DataStore persistence of the session `token` for reconnect (`room:resume`).
 - Theme pass (paper texture, Bengali display font), animations, war SFX.
 - Asset catalogue loading (map logical keys → art URLs; see `../docs/ADMIN_PLAN.md`).

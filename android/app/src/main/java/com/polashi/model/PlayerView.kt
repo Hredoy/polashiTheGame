@@ -95,3 +95,14 @@ data class RoomCreated(val roomId: String, val code: String? = null)
 
 @Serializable
 data class GameError(@SerialName("code") val code: String, val message: String)
+
+@Serializable
+data class HistoryItem(
+    val roomId: String,
+    val code: String,
+    val winnerSide: String,
+    val characterKey: String,
+    val side: String,
+    val won: Boolean,
+    val finishedAt: String,
+)
