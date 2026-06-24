@@ -15,9 +15,6 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "0.1.0"
-
-        // Backend base URL. 10.0.2.2 = host machine from the Android emulator.
-        buildConfigField("String", "SERVER_URL", "\"http://192.168.88.200:3000\"")
     }
 
     buildFeatures {
@@ -32,9 +29,16 @@ android {
     kotlinOptions { jvmTarget = "17" }
 
     buildTypes {
+        getByName("debug") {
+            // Local testing: your PC's LAN IP (phone must be on the same Wi-Fi).
+            // Emulator? use http://10.0.2.2:3000
+            buildConfigField("String", "SERVER_URL", "\"http://192.168.88.200:3000\"")
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Production: the public domain (served via Cloudflare tunnel / reverse proxy).
+            buildConfigField("String", "SERVER_URL", "\"https://game.arafatbikecare.com\"")
         }
     }
 }
