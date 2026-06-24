@@ -230,6 +230,7 @@ fun PlayerAvatar(
     isShobapoti: Boolean = false,
     selected: Boolean = false,
     dimmed: Boolean = false,
+    stamp: AvatarFaction? = null, // overlays an EIC/Nawab stamp when this viewer knows the side
     size: Int = 56,
     onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
@@ -241,27 +242,56 @@ fun PlayerAvatar(
     }
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
         if (isShobapoti) Text("👑", fontSize = 14.sp)
-        Box(
-            Modifier
-                .size(size.dp)
-                .clip(CircleShape)
-                .background(Brush.radialGradient(listOf(PolashiColors.WarBrownLight, PolashiColors.WarNight)))
-                .border(BorderStroke(if (selected) 3.dp else 2.dp, if (selected) PolashiColors.GoldBright else ring), CircleShape)
-                .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                name.take(1).uppercase(),
-                color = if (dimmed) PolashiColors.CreamDim else PolashiColors.Cream,
-                fontWeight = FontWeight.Bold,
-                fontSize = (size / 2.6).sp,
-            )
+        Box {
+            Box(
+                Modifier
+                    .size(size.dp)
+                    .clip(CircleShape)
+                    .background(Brush.radialGradient(listOf(PolashiColors.WarBrownLight, PolashiColors.WarNight)))
+                    .border(BorderStroke(if (selected) 3.dp else 2.dp, if (selected) PolashiColors.GoldBright else ring), CircleShape)
+                    .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    name.take(1).uppercase(),
+                    color = if (dimmed) PolashiColors.CreamDim else PolashiColors.Cream,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = (size / 2.6).sp,
+                )
+            }
+            if (stamp != null && stamp != AvatarFaction.NEUTRAL) {
+                FactionStamp(eic = stamp == AvatarFaction.EIC, size = 24, modifier = Modifier.align(Alignment.BottomEnd))
+            }
         }
         Text(name, color = PolashiColors.Cream, fontSize = 11.sp, maxLines = 1)
     }
 }
 
 enum class AvatarFaction { NAWAB, EIC, NEUTRAL }
+
+/**
+ * Faction stamp badge (EIC red / Nawab green). Text fallback now; swap for the uploaded
+ * stamp-logo image (admin panel) when available.
+ */
+@Composable
+fun FactionStamp(eic: Boolean, modifier: Modifier = Modifier, size: Int = 28) {
+    Box(
+        modifier
+            .size(size.dp)
+            .clip(CircleShape)
+            .background(if (eic) PolashiColors.EicDeep else PolashiColors.NawabDeep)
+            .border(BorderStroke(1.5.dp, PolashiBrushes.gold), CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            if (eic) "EIC" else "নবাব",
+            color = PolashiColors.Cream,
+            fontWeight = FontWeight.Bold,
+            fontSize = (size / 3.4).sp,
+            maxLines = 1,
+        )
+    }
+}
 
 /** Faction score header: green banner (Nawab wins) | chapter | red banner (EIC wins). */
 @Composable

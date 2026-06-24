@@ -35,6 +35,23 @@ private fun sideFaction(side: String?) = when (side) {
     else -> AvatarFaction.NEUTRAL
 }
 
+/**
+ * The faction stamp this viewer is allowed to see on a given player:
+ * - yourself → your own side
+ * - players in your night-reveal knowledge → EIC (Mir Modon / EIC allies) or Nawab
+ *   (Mohan Lal's Mir-Modon candidates)
+ * - everyone else → null (hidden)
+ */
+private fun knownStamp(view: PlayerView, playerId: String, myUserId: String?): AvatarFaction? {
+    if (playerId == myUserId) return sideFaction(view.self?.side)
+    val r = view.self?.reveals?.firstOrNull { it.playerId == playerId } ?: return null
+    return when (r.label) {
+        "EIC", "EIC_ALLY" -> AvatarFaction.EIC
+        "MIR_MODON_CANDIDATE" -> AvatarFaction.NAWAB
+        else -> null
+    }
+}
+
 /** A wrap of player avatars (chunked into rows of 4), with optional selection. */
 @Composable
 private fun AvatarGrid(
@@ -54,6 +71,7 @@ private fun AvatarGrid(
                         isShobapoti = p.isShobapoti,
                         selected = p.id in selected || p.id in (view.current?.memberIds ?: emptyList()),
                         dimmed = !p.connected,
+                        stamp = knownStamp(view, p.id, myUserId),
                         onClick = if (selectable) ({ onToggle(p.id) }) else null,
                     )
                 }
@@ -81,17 +99,30 @@ fun RoleRevealContent(view: PlayerView, onAck: () -> Unit) {
             Text(it, color = PolashiColors.InkSoft, fontSize = 14.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
         }
         if (self.reveals.isNotEmpty()) {
-            Text("আপনি যা জানেন:", color = PolashiColors.Ink, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp))
+            val heading = when (self.reveals.first().label) {
+                "EIC" -> "ইস্ট ইন্ডিয়া কোম্পানি সদস্যরা" // Mir Modon
+                "EIC_ALLY" -> "আপনার সহযোগীরা" // EIC teammate
+                "MIR_MODON_CANDIDATE" -> "মীর মদন হতে পারে" // Mohan Lal
+                else -> "আপনি যা জানেন"
+            }
+            Text(heading, color = PolashiColors.Ink, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 14.dp, bottom = 6.dp))
             self.reveals.forEach { r ->
                 val who = view.players.firstOrNull { it.id == r.playerId }?.name ?: "?"
-                val label = when (r.label) {
-                    "EIC" -> "$who — ইস্ট ইন্ডিয়া কোম্পানি"
-                    "EIC_ALLY" -> "$who — আপনার সহযোগী"
-                    "MIR_MODON_CANDIDATE" -> "$who — মীর মদন হতে পারে"
-                    else -> who
+                val eic = r.label == "EIC" || r.label == "EIC_ALLY"
+                Row(
+                    Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(who, color = PolashiColors.Ink, fontWeight = FontWeight.SemiBold)
+                    com.polashi.ui.components.FactionStamp(eic = eic, size = 30)
                 }
-                Text("• $label", color = PolashiColors.InkSoft)
             }
+            Text(
+                "এই তথ্য গোপন রাখুন — কাউকে বলবেন না।",
+                color = PolashiColors.InkSoft, fontSize = 12.sp,
+                modifier = Modifier.padding(top = 6.dp),
+            )
         }
         PrimaryButton("বোঝেছি", onClick = onAck, modifier = Modifier.fillMaxWidth().padding(top = 16.dp))
         Text(
@@ -109,7 +140,9 @@ fun RoleRevealContent(view: PlayerView, onAck: () -> Unit) {
 fun TeamProposalContent(view: PlayerView, myUserId: String?, onPropose: (List<String>) -> Unit) {
     val me = view.players.firstOrNull { it.id == myUserId }
     val teamSize = view.chapters.firstOrNull { it.index == view.chapterIndex }?.teamSize ?: 0
-    var selected by remember(view.version) { mutableStateOf(setOf<String>()) }
+    // Reset only when a NEW proposal round begins (chapter or failed-vote count changes),
+    // not on every server tick — otherwise selection is lost mid-pick.
+    var selected by remember(view.chapterIndex, view.failedProposals) { mutableStateOf(setOf<String>()) }
 
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         if (me?.isShobapoti == true) {
@@ -170,7 +203,9 @@ fun MissionContent(view: PlayerView, myUserId: String?, onSubmit: (String) -> Un
     val proposal = view.current ?: return
     val onTeam = myUserId in proposal.memberIds
     val isNawab = view.self?.side == "NAWAB"
-    var submitted by remember(view.version) { mutableStateOf(false) }
+    // Persist for the whole mission (keyed on chapter), so a single click sticks and the
+    // card doesn't reappear when other players' updates bump the version.
+    var submitted by remember(view.chapterIndex) { mutableStateOf(false) }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
         SectionBanner("মিশন কার্ড জমা দিন", "আপনি নির্বাচিত সদস্য")
