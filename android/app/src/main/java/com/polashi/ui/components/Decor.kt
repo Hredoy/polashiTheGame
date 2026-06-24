@@ -28,6 +28,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.SubcomposeAsyncImage
+import com.polashi.ui.AssetUrls
 import com.polashi.ui.theme.PolashiBrushes
 import com.polashi.ui.theme.PolashiColors
 
@@ -171,7 +173,7 @@ fun GhostButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier
 
 /** Circular wax-seal vote button (হ্যাঁ green / না red). */
 @Composable
-fun WaxSeal(label: String, faction: SealFaction, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun WaxSeal(label: String, faction: SealFaction, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
     val colors = when (faction) {
         SealFaction.YES -> listOf(PolashiColors.NawabBright, PolashiColors.SealGreen, PolashiColors.NawabDeep)
         SealFaction.NO -> listOf(PolashiColors.EicBright, PolashiColors.SealRed, PolashiColors.EicDeep)
@@ -182,10 +184,16 @@ fun WaxSeal(label: String, faction: SealFaction, onClick: () -> Unit, modifier: 
             .clip(CircleShape)
             .background(Brush.radialGradient(colors))
             .border(BorderStroke(3.dp, PolashiBrushes.gold), CircleShape)
-            .clickable { onClick() },
+            .clickable(enabled = enabled) { onClick() },
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, color = PolashiColors.Cream, fontWeight = FontWeight.Black, fontSize = 26.sp)
+        SubcomposeAsyncImage(
+            model = AssetUrls.vote(faction == SealFaction.YES),
+            contentDescription = label,
+            modifier = Modifier.fillMaxSize().padding(10.dp),
+            loading = { Text(label, color = PolashiColors.Cream, fontWeight = FontWeight.Black, fontSize = 26.sp) },
+            error = { Text(label, color = PolashiColors.Cream, fontWeight = FontWeight.Black, fontSize = 26.sp) },
+        )
     }
 }
 
@@ -199,6 +207,7 @@ fun MissionCardOption(
     win: Boolean, // true = success (green), false = betrayer (red)
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
     val fill = if (win) PolashiBrushes.nawabBanner else PolashiBrushes.eicBanner
     Box(
@@ -206,15 +215,31 @@ fun MissionCardOption(
             .clip(RoundedCornerShape(14.dp))
             .background(fill)
             .border(BorderStroke(2.dp, PolashiBrushes.gold), RoundedCornerShape(14.dp))
-            .clickable { onClick() }
+            .clickable(enabled = enabled) { onClick() }
             .padding(vertical = 28.dp, horizontal = 16.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(if (win) "⚑" else "⚑", color = PolashiColors.Cream, fontSize = 40.sp)
-            Text(title, color = PolashiColors.Cream, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-            Text(subtitle, color = PolashiColors.CreamDim, fontSize = 12.sp)
-        }
+        MissionCardFallback(title, subtitle, win)
+    }
+}
+
+@Composable
+private fun MissionCardFallback(title: String, subtitle: String, win: Boolean) {
+    SubcomposeAsyncImage(
+        model = AssetUrls.mission(win),
+        contentDescription = title,
+        modifier = Modifier.fillMaxWidth().height(104.dp),
+        loading = { MissionCardText(title, subtitle, win) },
+        error = { MissionCardText(title, subtitle, win) },
+    )
+}
+
+@Composable
+private fun MissionCardText(title: String, subtitle: String, win: Boolean) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(if (win) "⚑" else "⚑", color = PolashiColors.Cream, fontSize = 40.sp)
+        Text(title, color = PolashiColors.Cream, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+        Text(subtitle, color = PolashiColors.CreamDim, fontSize = 12.sp)
     }
 }
 
@@ -241,7 +266,15 @@ fun PlayerAvatar(
         AvatarFaction.NEUTRAL -> PolashiColors.Gold
     }
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
-        if (isShobapoti) Text("👑", fontSize = 14.sp)
+        if (isShobapoti) {
+            SubcomposeAsyncImage(
+                model = AssetUrls.captainCard(),
+                contentDescription = "Captain",
+                modifier = Modifier.size(20.dp),
+                loading = { Text("👑", fontSize = 14.sp) },
+                error = { Text("👑", fontSize = 14.sp) },
+            )
+        }
         Box {
             Box(
                 Modifier
@@ -283,14 +316,25 @@ fun FactionStamp(eic: Boolean, modifier: Modifier = Modifier, size: Int = 28) {
             .border(BorderStroke(1.5.dp, PolashiBrushes.gold), CircleShape),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            if (eic) "EIC" else "নবাব",
-            color = PolashiColors.Cream,
-            fontWeight = FontWeight.Bold,
-            fontSize = (size / 3.4).sp,
-            maxLines = 1,
+        SubcomposeAsyncImage(
+            model = AssetUrls.stamp(if (eic) "EIC" else "NAWAB"),
+            contentDescription = if (eic) "EIC" else "Nawab",
+            modifier = Modifier.fillMaxSize().padding(3.dp),
+            loading = { FactionStampText(eic, size) },
+            error = { FactionStampText(eic, size) },
         )
     }
+}
+
+@Composable
+private fun FactionStampText(eic: Boolean, size: Int) {
+    Text(
+        if (eic) "EIC" else "নবাব",
+        color = PolashiColors.Cream,
+        fontWeight = FontWeight.Bold,
+        fontSize = (size / 3.4).sp,
+        maxLines = 1,
+    )
 }
 
 /** Faction score header: green banner (Nawab wins) | chapter | red banner (EIC wins). */

@@ -37,6 +37,16 @@ npm run dev
 
 `GET /health` → `{ ok, store }`.
 
+## Public testing and assets
+
+- Idle lobbies are filled with bots after `BOT_FILL_MS` (default `120000`, two minutes)
+  until the room reaches the minimum five players. Bots are marked in `PlayerView.players[].isBot`.
+- Start the backend and open `/admin` to upload the game logo, character cards, vote cards,
+  mission success/betrayer cards, captain card, and faction stamp logos. Uploaded files are
+  served from `/uploads/<slot>` and stored in `backend/uploads/`.
+- For public testing, expose the backend through the Cloudflare tunnel in `../docs/DEPLOY.md`.
+  The Android release build already points at `https://game.arafatbikecare.com`.
+
 ## Socket API
 
 Handshake auth: `{ token?, name }`. Server replies `session { userId, name, token }`. Identity

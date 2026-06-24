@@ -35,6 +35,7 @@ data class PublicPlayer(
     val connected: Boolean,
     val ackedRole: Boolean,
     val isShobapoti: Boolean,
+    val isBot: Boolean = false,
 )
 
 @Serializable

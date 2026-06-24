@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -12,6 +13,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.SubcomposeAsyncImage
+import com.polashi.ui.AssetUrls
 import com.polashi.ui.components.WarBackground
 import com.polashi.ui.theme.PolashiColors
 import kotlinx.coroutines.delay
@@ -28,7 +31,13 @@ fun SplashScreen(onDone: () -> Unit) {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text("⚔", fontSize = 56.sp)
+            SubcomposeAsyncImage(
+                model = AssetUrls.gameLogo(),
+                contentDescription = "Polashi",
+                modifier = Modifier.size(96.dp),
+                loading = { Text("⚔", fontSize = 56.sp) },
+                error = { Text("⚔", fontSize = 56.sp) },
+            )
             Text(
                 "পলাশীর",
                 color = PolashiColors.GoldBright,

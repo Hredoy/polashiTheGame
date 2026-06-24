@@ -113,17 +113,26 @@ describe('deck composition', () => {
     }
   });
 
+  it('always includes the mandatory roles', () => {
+    const deck = buildDeck(5, baseSettings);
+    expect(deck).toContain('SIRAJ');
+    expect(deck).toContain('MIR_MODON');
+    expect(deck).toContain('MIR_ZAFAR');
+    expect(deck).toContain('GHASETI_BEGUM');
+  });
+
   it('includes optional characters and keeps faction sizes correct', () => {
     const settings: RoomSettings = {
       optionalCharacters: ['MOHAN_LAL', 'RAI_DURLABH', 'UMICHAND'],
       spyVariant: false,
     };
-    const deck = buildDeck(8, settings);
+    // 10 players: Nawab 6, EIC 4 — room for two EIC optionals beyond Mir Zafar + Ghaseti.
+    const deck = buildDeck(10, settings);
     expect(deck).toContain('MOHAN_LAL');
     expect(deck).toContain('RAI_DURLABH');
     expect(deck).toContain('UMICHAND');
-    expect(deck.filter((c) => CHARACTER_SIDE[c] === 'NAWAB')).toHaveLength(5);
-    expect(deck.filter((c) => CHARACTER_SIDE[c] === 'EIC')).toHaveLength(3);
+    expect(deck.filter((c) => CHARACTER_SIDE[c] === 'NAWAB')).toHaveLength(6);
+    expect(deck.filter((c) => CHARACTER_SIDE[c] === 'EIC')).toHaveLength(4);
   });
 });
 

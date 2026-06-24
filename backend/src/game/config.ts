@@ -62,11 +62,12 @@ export function validateOptionalCharacters(
 ): { ok: true } | { ok: false; reason: string } {
   const { NAWAB, EIC } = distribution(playerCount);
   const sideOf: Record<CharacterKey, Side> = {
-    MIR_MODON: 'NAWAB', NAWAB: 'NAWAB', MOHAN_LAL: 'NAWAB',
-    MIR_ZAFAR: 'EIC', EIC: 'EIC', RAI_DURLABH: 'EIC', UMICHAND: 'EIC', GHASETI_BEGUM: 'EIC',
+    SIRAJ: 'NAWAB', MIR_MODON: 'NAWAB', NAWAB: 'NAWAB', MOHAN_LAL: 'NAWAB',
+    SAINT_FRAIS: 'NAWAB', DEBUSI: 'NAWAB', LUTFUNNESSA: 'NAWAB',
+    MIR_ZAFAR: 'EIC', GHASETI_BEGUM: 'EIC', EIC: 'EIC', RAI_DURLABH: 'EIC', UMICHAND: 'EIC',
   };
-  const nawabSlots = NAWAB - 1; // minus Mir Modon
-  const eicSlots = EIC - 1; // minus Mir Zafar
+  const nawabSlots = NAWAB - 2; // minus mandatory Siraj + Mir Modon
+  const eicSlots = EIC - 2; // minus mandatory Mir Zafar + Ghaseti
   let nawabUsed = 0;
   let eicUsed = 0;
   const seen = new Set<CharacterKey>();

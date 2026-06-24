@@ -48,7 +48,10 @@ services:
       ROOM_TTL_MS: "3600000"
     ports:
       - "3000:3000" # host:container — the tunnel/reverse-proxy points here
+    volumes:
+      - uploads:/app/uploads # admin-uploaded images (logo, character cards, stamps, ...)
     restart: unless-stopped
 
 volumes:
   pgdata:
+  uploads:

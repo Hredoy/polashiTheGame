@@ -1,0 +1,7 @@
+tunnel: 09b006e3-7058-4b3d-8abf-c93a148facd0
+credentials-file: C:\Users\arhre\.cloudflared\09b006e3-7058-4b3d-8abf-c93a148facd0.json
+
+ingress:
+  - hostname: game.arafatbikecare.com
+    service: http://127.0.0.1:3000
+  - service: http_status:404

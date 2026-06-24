@@ -3,10 +3,14 @@
 
 import { customAlphabet, nanoid } from 'nanoid';
 import { signToken, verifyToken } from '../auth/token.js';
+import { MIN_PLAYERS } from '../game/config.js';
 import { createRoom as engineCreateRoom, reduce, type Action } from '../game/engine.js';
 import { CHARACTER_SIDE, GameError, type GameState, type RoomSettings } from '../game/types.js';
 import type { GameResultRecord, RoomStore, UserRecord } from '../repo/store.js';
+import { decideBotAction } from './bots.js';
 import { KeyedMutex } from './mutex.js';
+
+const BOT_NAMES = ['রহিম', 'করিম', 'সেলিম', 'জসিম', 'নাসির', 'বাবু'];
 
 const newCode = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 6); // no ambiguous chars
 
@@ -103,6 +107,47 @@ export class GameService {
   }
   cleanupStaleRooms(olderThanMs: number) {
     return this.store.deleteStaleRooms(['GAME_OVER', 'LOBBY'], olderThanMs);
+  }
+
+  // Fill idle lobbies (no activity for olderThanMs) with bots up to the minimum player count.
+  // Returns the room ids that were filled.
+  async fillIdleLobbies(olderThanMs: number): Promise<string[]> {
+    const ids = await this.store.roomsNeedingTimeout(['LOBBY'], olderThanMs);
+    const filled: string[] = [];
+    for (const id of ids) {
+      const rec = await this.store.getById(id);
+      if (!rec || rec.state.players.length >= MIN_PLAYERS) continue;
+      for (let i = rec.state.players.length; i < MIN_PLAYERS; i++) {
+        const name = `${BOT_NAMES[i % BOT_NAMES.length]} 🤖`;
+        await this.apply(id, { type: 'ADD_BOT', botId: nanoid(), name });
+      }
+      filled.push(id);
+    }
+    return filled;
+  }
+
+  // Apply pending bot actions for a room until none remain (bounded). Returns whether any
+  // bot acted, so the caller can re-broadcast.
+  async driveBots(roomId: string): Promise<boolean> {
+    let acted = false;
+    for (let i = 0; i < 60; i++) {
+      const rec = await this.store.getById(roomId);
+      if (!rec || rec.state.status === 'GAME_OVER') break;
+      let action: Action | null = null;
+      for (const p of rec.state.players) {
+        if (!p.isBot) continue;
+        action = decideBotAction(rec.state, p.id);
+        if (action) break;
+      }
+      if (!action) break;
+      try {
+        await this.apply(roomId, action);
+        acted = true;
+      } catch {
+        break; // never loop forever on an unexpected rejection
+      }
+    }
+    return acted;
   }
 
   // Resolve a stalled phase by auto-acting for players who haven't acted yet.

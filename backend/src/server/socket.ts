@@ -78,6 +78,8 @@ export function attachSockets(io: Server, service: GameService): void {
       if (!roomId) throw new GameError('NO_ROOM', 'Not in a room');
       await service.apply(roomId, action);
       await broadcastViews(io, roomId, service);
+      // Let any bots react to the new state, then re-broadcast if they did.
+      if (await service.driveBots(roomId)) await broadcastViews(io, roomId, service);
     };
 
     const enterRoom = async (roomId: string) => {

@@ -11,14 +11,18 @@ import com.polashi.ui.theme.NawabGreen
  */
 object Characters {
     private val names = mapOf(
+        "SIRAJ" to "নবাব সিরাজউদ্দৌলা",
         "MIR_MODON" to "মীর মদন",
-        "MIR_ZAFAR" to "মীর জাফর",
         "NAWAB" to "নবাব সৈনিক",
-        "EIC" to "EIC এজেন্ট",
         "MOHAN_LAL" to "মোহন লাল",
+        "SAINT_FRAIS" to "সেন্ট ফ্রে",
+        "DEBUSI" to "দেবুসি",
+        "LUTFUNNESSA" to "লুৎফুন্নেসা বেগম",
+        "MIR_ZAFAR" to "মীর জাফর",
+        "GHASETI_BEGUM" to "ঘসেটি বেগম",
+        "EIC" to "ইস্ট ইন্ডিয়া এজেন্ট",
         "RAI_DURLABH" to "রায় দুর্লভ",
         "UMICHAND" to "উমিচাঁদ",
-        "GHASETI_BEGUM" to "ঘসেটি বেগম",
     )
 
     fun name(key: String?): String = key?.let { names[it] ?: it } ?: "?"

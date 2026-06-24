@@ -14,33 +14,49 @@ export type Phase =
   | 'FINAL_GUESS'
   | 'GAME_OVER';
 
-// Signature roles always present; optional characters are room-configurable add-ons.
+// Mandatory roles are always present (Nawab: Siraj + Mir Modon; EIC: Mir Zafar + Ghaseti).
+// Optional characters are room-configurable add-ons. New roles (Siraj, Saint Frais, Debusi,
+// Lutfunnessa) are themed names for plain members — no special power.
 export type CharacterKey =
-  | 'MIR_MODON' // Nawab — sees EIC at night; must finger Mir Zafar to clinch a Nawab win
-  | 'MIR_ZAFAR' // EIC — the traitor Mir Modon hunts
+  | 'SIRAJ' // Nawab — Siraj-ud-Daulah, the Nawab (mandatory, no power)
+  | 'MIR_MODON' // Nawab — sees EIC at night; must finger Mir Zafar to clinch a Nawab win (mandatory)
   | 'NAWAB' // plain Nawab loyalist
+  | 'MOHAN_LAL' // Nawab — learns who Mir Modon is (optional)
+  | 'SAINT_FRAIS' // Nawab — themed name, no power (optional)
+  | 'DEBUSI' // Nawab — themed name, no power (optional)
+  | 'LUTFUNNESSA' // Nawab — Lutfunnessa Begum, themed name, no power (optional)
+  | 'MIR_ZAFAR' // EIC — the traitor Mir Modon hunts (mandatory)
+  | 'GHASETI_BEGUM' // EIC — appears as Mir Modon to Mohan Lal (mandatory)
   | 'EIC' // plain EIC agent
-  | 'MOHAN_LAL' // Nawab — learns who Mir Modon is
-  | 'RAI_DURLABH' // EIC — hidden from Mir Modon
-  | 'UMICHAND' // EIC — isolated; sees no EIC and is seen by no EIC
-  | 'GHASETI_BEGUM'; // EIC — appears as Mir Modon to Mohan Lal
+  | 'RAI_DURLABH' // EIC — hidden from Mir Modon (optional)
+  | 'UMICHAND'; // EIC — isolated; sees no EIC and is seen by no EIC (optional)
+
+// Always dealt, one each, on their side.
+export const MANDATORY_NAWAB: CharacterKey[] = ['SIRAJ', 'MIR_MODON'];
+export const MANDATORY_EIC: CharacterKey[] = ['MIR_ZAFAR', 'GHASETI_BEGUM'];
 
 export const OPTIONAL_CHARACTERS: CharacterKey[] = [
   'MOHAN_LAL',
+  'SAINT_FRAIS',
+  'DEBUSI',
+  'LUTFUNNESSA',
   'RAI_DURLABH',
   'UMICHAND',
-  'GHASETI_BEGUM',
 ];
 
 export const CHARACTER_SIDE: Record<CharacterKey, Side> = {
+  SIRAJ: 'NAWAB',
   MIR_MODON: 'NAWAB',
   NAWAB: 'NAWAB',
   MOHAN_LAL: 'NAWAB',
+  SAINT_FRAIS: 'NAWAB',
+  DEBUSI: 'NAWAB',
+  LUTFUNNESSA: 'NAWAB',
   MIR_ZAFAR: 'EIC',
+  GHASETI_BEGUM: 'EIC',
   EIC: 'EIC',
   RAI_DURLABH: 'EIC',
   UMICHAND: 'EIC',
-  GHASETI_BEGUM: 'EIC',
 };
 
 export type MissionCard = 'SUCCESS' | 'BETRAYER';
@@ -53,6 +69,7 @@ export interface PlayerState {
   ready: boolean;
   connected: boolean;
   ackedRole: boolean;
+  isBot?: boolean; // auto-filled bot driven server-side; absent/false = human
 }
 
 export interface RoomSettings {

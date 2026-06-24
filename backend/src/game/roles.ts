@@ -22,21 +22,23 @@ function shuffle<T>(arr: T[], rng: Rng): T[] {
   return a;
 }
 
-// Build the full deck of character keys for a game, honouring optional characters.
+// Build the full deck of character keys for a game, honouring mandatory + optional roles.
 export function buildDeck(playerCount: number, settings: RoomSettings): CharacterKey[] {
   const { NAWAB, EIC } = distribution(playerCount);
   const optional = new Set(settings.optionalCharacters);
 
   const deck: CharacterKey[] = [];
 
-  // Nawab side: Mir Modon + optional Nawab characters + plain Nawab to fill.
-  deck.push('MIR_MODON');
-  if (optional.has('MOHAN_LAL')) deck.push('MOHAN_LAL');
+  // Nawab side: mandatory (Siraj + Mir Modon) + optional Nawab characters + plain fill.
+  deck.push('SIRAJ', 'MIR_MODON');
+  for (const c of ['MOHAN_LAL', 'SAINT_FRAIS', 'DEBUSI', 'LUTFUNNESSA'] as CharacterKey[]) {
+    if (optional.has(c)) deck.push(c);
+  }
   while (deck.filter((c) => CHARACTER_SIDE[c] === 'NAWAB').length < NAWAB) deck.push('NAWAB');
 
-  // EIC side: Mir Zafar + optional EIC characters + plain EIC to fill.
-  deck.push('MIR_ZAFAR');
-  for (const c of ['RAI_DURLABH', 'UMICHAND', 'GHASETI_BEGUM'] as CharacterKey[]) {
+  // EIC side: mandatory (Mir Zafar + Ghaseti) + optional EIC characters + plain fill.
+  deck.push('MIR_ZAFAR', 'GHASETI_BEGUM');
+  for (const c of ['RAI_DURLABH', 'UMICHAND'] as CharacterKey[]) {
     if (optional.has(c)) deck.push(c);
   }
   while (deck.filter((c) => CHARACTER_SIDE[c] === 'EIC').length < EIC) deck.push('EIC');

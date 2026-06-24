@@ -139,6 +139,6 @@ fun GameOverContent(view: PlayerView, myUserId: String?, onHistory: () -> Unit) 
 
 private fun sideOf(key: String?): String? = when (key) {
     null -> null
-    "MIR_MODON", "NAWAB", "MOHAN_LAL" -> "NAWAB"
+    "SIRAJ", "MIR_MODON", "NAWAB", "MOHAN_LAL", "SAINT_FRAIS", "DEBUSI", "LUTFUNNESSA" -> "NAWAB"
     else -> "EIC"
 }

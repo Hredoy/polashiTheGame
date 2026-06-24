@@ -30,9 +30,8 @@ android {
 
     buildTypes {
         getByName("debug") {
-            // Local testing: your PC's LAN IP (phone must be on the same Wi-Fi).
-            // Emulator? use http://10.0.2.2:3000
-            buildConfigField("String", "SERVER_URL", "\"http://192.168.88.200:3000\"")
+            // Public team testing via Cloudflare Tunnel.
+            buildConfigField("String", "SERVER_URL", "\"https://game.arafatbikecare.com\"")
         }
         release {
             isMinifyEnabled = false

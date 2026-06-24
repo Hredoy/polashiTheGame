@@ -12,6 +12,7 @@ export interface PublicPlayer {
   connected: boolean;
   ackedRole: boolean;
   isShobapoti: boolean;
+  isBot: boolean;
 }
 
 export interface SelfInfo {
@@ -80,6 +81,7 @@ export function buildPlayerView(state: GameState, recipientId: string): PlayerVi
     connected: p.connected,
     ackedRole: p.ackedRole,
     isShobapoti: p.id === shobapotiId,
+    isBot: p.isBot ?? false,
   }));
 
   const myRole = state.roles[recipientId];

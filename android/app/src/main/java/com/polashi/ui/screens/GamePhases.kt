@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -17,7 +18,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.SubcomposeAsyncImage
 import com.polashi.model.PlayerView
+import com.polashi.ui.AssetUrls
 import com.polashi.ui.Characters
 import com.polashi.ui.components.AvatarFaction
 import com.polashi.ui.components.MissionCardOption
@@ -85,6 +88,13 @@ private fun AvatarGrid(
 fun RoleRevealContent(view: PlayerView, onAck: () -> Unit) {
     val self = view.self ?: return
     PolashiPanel(Modifier.fillMaxWidth()) {
+        SubcomposeAsyncImage(
+            model = AssetUrls.character(self.characterKey),
+            contentDescription = Characters.name(self.characterKey),
+            modifier = Modifier.fillMaxWidth().height(180.dp).padding(bottom = 10.dp),
+            loading = {},
+            error = {},
+        )
         Text("আপনার চরিত্র", color = PolashiColors.InkSoft, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
         Text(
             Characters.name(self.characterKey),
@@ -178,11 +188,12 @@ fun TeamProposalContent(view: PlayerView, myUserId: String?, onPropose: (List<St
 fun VotingContent(view: PlayerView, myUserId: String?, onVote: (String) -> Unit) {
     val proposal = view.current ?: return
     val hasVoted = myUserId in proposal.votedPlayerIds
+    var votedLocal by remember(view.chapterIndex, view.failedProposals) { mutableStateOf(false) }
     val teamNames = proposal.memberIds.mapNotNull { id -> view.players.firstOrNull { it.id == id }?.name }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
         SectionBanner("টিম অনুমোদন ভোট", "প্রস্তাবিত: ${teamNames.joinToString(", ")}")
-        if (hasVoted) {
+        if (hasVoted || votedLocal) {
             Text(
                 "ভোট দেওয়া হয়েছে। অপেক্ষা… (${proposal.votedPlayerIds.size}/${view.players.size})",
                 color = PolashiColors.Cream, textAlign = TextAlign.Center,
@@ -190,8 +201,8 @@ fun VotingContent(view: PlayerView, myUserId: String?, onVote: (String) -> Unit)
         } else {
             Text("এই টিম অনুমোদন করবেন?", color = PolashiColors.Cream, fontSize = 16.sp)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                WaxSeal("হ্যাঁ", SealFaction.YES, onClick = { onVote("YES") })
-                WaxSeal("না", SealFaction.NO, onClick = { onVote("NO") })
+                WaxSeal("হ্যাঁ", SealFaction.YES, onClick = { votedLocal = true; onVote("YES") }, enabled = !votedLocal)
+                WaxSeal("না", SealFaction.NO, onClick = { votedLocal = true; onVote("NO") }, enabled = !votedLocal)
             }
         }
     }
@@ -214,9 +225,9 @@ fun MissionContent(view: PlayerView, myUserId: String?, onSubmit: (String) -> Un
             submitted -> Text("কার্ড জমা হয়েছে। বাকিদের অপেক্ষা…", color = PolashiColors.Cream)
             else -> {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    MissionCardOption("সফল", "নবাবের জয়", win = true, onClick = { onSubmit("SUCCESS"); submitted = true }, modifier = Modifier.weight(1f))
+                    MissionCardOption("সফল", "নবাবের জয়", win = true, onClick = { submitted = true; onSubmit("SUCCESS") }, enabled = !submitted, modifier = Modifier.weight(1f))
                     if (!isNawab) {
-                        MissionCardOption("ব্যর্থ", "ইস্ট ইন্ডিয়ার জয়", win = false, onClick = { onSubmit("BETRAYER"); submitted = true }, modifier = Modifier.weight(1f))
+                        MissionCardOption("ব্যর্থ", "ইস্ট ইন্ডিয়ার জয়", win = false, onClick = { submitted = true; onSubmit("BETRAYER") }, enabled = !submitted, modifier = Modifier.weight(1f))
                     }
                 }
                 if (isNawab) Text("নবাব পক্ষ হিসেবে আপনাকে সফল কার্ড খেলতে হবে।", color = PolashiColors.CreamDim, fontSize = 12.sp)

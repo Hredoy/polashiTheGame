@@ -29,6 +29,7 @@ import {
 export type Action =
   // Lobby actions
   | { type: 'JOIN'; actorId: string; name: string }
+  | { type: 'ADD_BOT'; botId: string; name: string } // system-initiated bot fill
   | { type: 'LEAVE'; actorId: string }
   | { type: 'SET_READY'; actorId: string; ready: boolean }
   | { type: 'SET_CONNECTED'; actorId: string; connected: boolean }
@@ -130,6 +131,8 @@ export function reduce(state: GameState, action: Action, ctx: ReduceContext): Ga
   switch (action.type) {
     case 'JOIN':
       return join(state, action.actorId, action.name);
+    case 'ADD_BOT':
+      return addBot(state, action.botId, action.name);
     case 'LEAVE':
       return leave(state, action.actorId);
     case 'SET_READY':
@@ -217,6 +220,21 @@ function join(state: GameState, actorId: string, name: string): GameState {
     ready: false,
     connected: true,
     ackedRole: false,
+  };
+  return bump({ ...state, players: [...state.players, player] });
+}
+
+function addBot(state: GameState, botId: string, name: string): GameState {
+  requirePhase(state, 'LOBBY');
+  if (state.players.length >= MAX_PLAYERS) throw new GameError('ROOM_FULL', 'Room is full');
+  const player: PlayerState = {
+    id: botId,
+    name,
+    seatIndex: state.players.length,
+    ready: true, // bots are always ready
+    connected: true,
+    ackedRole: false,
+    isBot: true,
   };
   return bump({ ...state, players: [...state.players, player] });
 }
