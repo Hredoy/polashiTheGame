@@ -1,5 +1,11 @@
 package com.polashi.ui.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -42,19 +48,28 @@ fun GameBoardScreen(vm: GameViewModel, onViewHistory: () -> Unit) {
             )
             OrnateDivider()
 
-            when (v.status) {
-                "ROLE_REVEAL" -> RoleRevealContent(v, onAck = vm::ackRole)
-                "TEAM_PROPOSAL" -> TeamProposalContent(v, myId, onPropose = vm::proposeTeam)
-                "VOTING" -> VotingContent(v, myId, onVote = vm::castVote)
-                "MISSION" -> MissionContent(v, myId, onSubmit = vm::submitCard)
-                "CHAPTER_RESULT" -> ChapterResultContent(
-                    v, myId, amHost,
-                    onAdvance = vm::advanceChapter,
-                    onInvestigate = vm::investigate,
-                )
-                "FINAL_GUESS" -> FinalGuessContent(v, myId, onGuess = vm::finalGuess)
-                "GAME_OVER" -> GameOverContent(v, myId, onHistory = { vm.loadHistory(); onViewHistory() })
-                else -> Text("Phase: ${v.status}", color = PolashiColors.Cream)
+            AnimatedContent(
+                targetState = v.status,
+                transitionSpec = {
+                    (fadeIn(tween(280)) togetherWith fadeOut(tween(180)))
+                        .using(SizeTransform(clip = false))
+                },
+                label = "phaseTransition",
+            ) { status ->
+                when (status) {
+                    "ROLE_REVEAL" -> RoleRevealContent(v, onAck = vm::ackRole)
+                    "TEAM_PROPOSAL" -> TeamProposalContent(v, myId, onPropose = vm::proposeTeam)
+                    "VOTING" -> VotingContent(v, myId, onVote = vm::castVote)
+                    "MISSION" -> MissionContent(v, myId, onSubmit = vm::submitCard)
+                    "CHAPTER_RESULT" -> ChapterResultContent(
+                        v, myId, amHost,
+                        onAdvance = vm::advanceChapter,
+                        onInvestigate = vm::investigate,
+                    )
+                    "FINAL_GUESS" -> FinalGuessContent(v, myId, onGuess = vm::finalGuess)
+                    "GAME_OVER" -> GameOverContent(v, myId, onHistory = { vm.loadHistory(); onViewHistory() })
+                    else -> Text("Phase: ${v.status}", color = PolashiColors.Cream)
+                }
             }
         }
     }

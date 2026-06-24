@@ -5,15 +5,19 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.Image
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.SubcomposeAsyncImage
+import com.polashi.R
 import com.polashi.ui.AssetUrls
 import com.polashi.ui.components.WarBackground
 import com.polashi.ui.theme.PolashiColors
@@ -34,9 +38,10 @@ fun SplashScreen(onDone: () -> Unit) {
             SubcomposeAsyncImage(
                 model = AssetUrls.gameLogo(),
                 contentDescription = "Polashi",
-                modifier = Modifier.size(96.dp),
-                loading = { Text("⚔", fontSize = 56.sp) },
-                error = { Text("⚔", fontSize = 56.sp) },
+                modifier = Modifier.size(width = 156.dp, height = 220.dp),
+                contentScale = ContentScale.Fit,
+                loading = { LocalLogo() },
+                error = { LocalLogo() },
             )
             Text(
                 "পলাশীর",
@@ -55,4 +60,14 @@ fun SplashScreen(onDone: () -> Unit) {
         }
         // TODO: scroll-unfurl animation + war drum SFX; battlefield art behind the title.
     }
+}
+
+@Composable
+private fun LocalLogo() {
+    Image(
+        painter = painterResource(R.drawable.app_logo),
+        contentDescription = "Polashi",
+        modifier = Modifier.size(width = 156.dp, height = 220.dp),
+        contentScale = ContentScale.Fit,
+    )
 }

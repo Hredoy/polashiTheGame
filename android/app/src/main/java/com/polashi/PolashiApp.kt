@@ -5,6 +5,8 @@ import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
+import com.polashi.audio.SettingsStore
+import com.polashi.audio.SoundManager
 import com.polashi.net.SocketManager
 
 /**
@@ -16,6 +18,7 @@ import com.polashi.net.SocketManager
  */
 class PolashiApp : Application(), ImageLoaderFactory {
     val socketManager: SocketManager by lazy { SocketManager() }
+    val soundManager: SoundManager by lazy { SoundManager(this) }
 
     companion object {
         lateinit var instance: PolashiApp
@@ -25,6 +28,7 @@ class PolashiApp : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
         instance = this
+        SettingsStore.init(this)
     }
 
     override fun newImageLoader(): ImageLoader =

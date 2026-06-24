@@ -28,7 +28,7 @@ import com.polashi.ui.theme.PolashiColors
 
 /** Create a new room or join an existing one by share code. */
 @Composable
-fun HomeScreen(vm: GameViewModel) {
+fun HomeScreen(vm: GameViewModel, onSettings: () -> Unit = {}) {
     var code by remember { mutableStateOf("") }
 
     WarBackground {
@@ -37,7 +37,14 @@ fun HomeScreen(vm: GameViewModel) {
             verticalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterVertically),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text("পলাশীর যুদ্ধ", color = PolashiColors.GoldBright, fontSize = 30.sp)
+            androidx.compose.foundation.layout.Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("পলাশীর যুদ্ধ", color = PolashiColors.GoldBright, fontSize = 30.sp)
+                com.polashi.ui.components.GhostButton("⚙", onClick = onSettings)
+            }
 
             PolashiPanel(Modifier.fillMaxWidth()) {
                 Text("রুম তৈরি করুন", color = PolashiColors.Ink, fontSize = 20.sp, modifier = Modifier.padding(bottom = 12.dp))

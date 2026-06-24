@@ -31,4 +31,20 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    // Background tune follows the activity lifecycle (and the sound setting).
+    override fun onResume() {
+        super.onResume()
+        PolashiApp.instance.soundManager.startMusic()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        PolashiApp.instance.soundManager.pauseMusic()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (isFinishing) PolashiApp.instance.soundManager.releaseMusic()
+    }
 }

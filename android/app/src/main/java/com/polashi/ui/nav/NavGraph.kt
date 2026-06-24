@@ -12,6 +12,7 @@ import com.polashi.ui.screens.GameScreen
 import com.polashi.ui.screens.HistoryScreen
 import com.polashi.ui.screens.HomeScreen
 import com.polashi.ui.screens.LoginScreen
+import com.polashi.ui.screens.SettingsScreen
 import com.polashi.ui.screens.SplashScreen
 
 object Routes {
@@ -20,6 +21,7 @@ object Routes {
     const val HOME = "home"
     const val GAME = "game" // Lobby + in-game; driven by PlayerView.status
     const val HISTORY = "history"
+    const val SETTINGS = "settings"
 }
 
 /**
@@ -41,10 +43,13 @@ fun PolashiNavGraph(vm: GameViewModel) {
         composable(Routes.LOGIN) {
             LoginScreen(vm, onContinue = { nav.navigate(Routes.HOME) })
         }
-        composable(Routes.HOME) { HomeScreen(vm) }
+        composable(Routes.HOME) {
+            HomeScreen(vm, onSettings = { nav.navigate(Routes.SETTINGS) })
+        }
         composable(Routes.GAME) {
             GameScreen(vm, onViewHistory = { nav.navigate(Routes.HISTORY) })
         }
         composable(Routes.HISTORY) { HistoryScreen(vm) }
+        composable(Routes.SETTINGS) { SettingsScreen(onBack = { nav.popBackStack() }) }
     }
 }
