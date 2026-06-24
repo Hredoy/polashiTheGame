@@ -17,7 +17,7 @@ android {
         versionName = "0.1.0"
 
         // Backend base URL. 10.0.2.2 = host machine from the Android emulator.
-        buildConfigField("String", "SERVER_URL", "\"http://10.0.2.2:3000\"")
+        buildConfigField("String", "SERVER_URL", "\"http://192.168.88.200:3000\"")
     }
 
     buildFeatures {
