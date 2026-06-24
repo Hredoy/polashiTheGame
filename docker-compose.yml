@@ -42,6 +42,7 @@ services:
       PORT: "3000"
       CORS_ORIGIN: "*"
       SESSION_SECRET: ${SESSION_SECRET:-change-me-to-a-long-random-string}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-} # required to open /admin and upload; set in .env
       DATABASE_URL: postgres://polashi:${POSTGRES_PASSWORD:-change-me-strong-password}@postgres:5432/polashi
       REDIS_URL: redis://redis:6379
       TURN_TIMEOUT_MS: "60000"

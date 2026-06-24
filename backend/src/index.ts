@@ -16,6 +16,9 @@ import { attachSockets, broadcastRoom } from './server/socket.js';
 
 const PORT = Number(process.env.PORT ?? 3000);
 const uploadDir = join(process.cwd(), 'uploads');
+// When set, the admin upload page + endpoint require this token (?key= / x-admin-token).
+// Empty = open (local dev only). MUST be set for any public deployment.
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN ?? '';
 
 const assetSlots = [
   'game_logo',
@@ -47,7 +50,7 @@ const contentTypes: Record<string, string> = {
   '.webp': 'image/webp',
 };
 
-function adminPage(): string {
+function adminPage(token: string): string {
   const options = assetSlots.map((s) => `<option value="${s}">${s}</option>`).join('');
   return `<!doctype html>
 <html lang="en">
@@ -76,7 +79,7 @@ async function refresh(){
 f.onsubmit=async e=>{
  e.preventDefault(); const file=document.getElementById('file').files[0];
  const dataUrl=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file);});
- const out=await fetch('/admin/assets',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({slot:slot.value,dataUrl})});
+ const out=await fetch('/admin/assets',{method:'POST',headers:{'content-type':'application/json','x-admin-token':'${token}'},body:JSON.stringify({slot:slot.value,dataUrl})});
  msg.textContent=out.ok?'Uploaded':'Upload failed: '+await out.text(); refresh();
 };
 refresh();
@@ -142,9 +145,17 @@ p{font-size:18px;line-height:1.5;color:#dfd0b1}a{color:#f3c767;font-weight:700}
     res.end(JSON.stringify({ ok: true, store: hasDatabase() ? 'pg' : 'memory' }));
     return;
   }
-  if (req.method === 'GET' && req.url === '/admin') {
+  if (req.method === 'GET' && (req.url === '/admin' || req.url?.startsWith('/admin?'))) {
+    if (ADMIN_TOKEN) {
+      const key = new URL(req.url, 'http://x').searchParams.get('key');
+      if (key !== ADMIN_TOKEN) {
+        res.writeHead(401, { 'content-type': 'text/plain' });
+        res.end('unauthorized — append ?key=YOUR_ADMIN_TOKEN');
+        return;
+      }
+    }
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-    res.end(adminPage());
+    res.end(adminPage(ADMIN_TOKEN));
     return;
   }
   if (req.method === 'GET' && req.url === '/assets/catalog') {
@@ -186,6 +197,11 @@ p{font-size:18px;line-height:1.5;color:#dfd0b1}a{color:#f3c767;font-weight:700}
     return;
   }
   if (req.method === 'POST' && req.url === '/admin/assets') {
+    if (ADMIN_TOKEN && req.headers['x-admin-token'] !== ADMIN_TOKEN) {
+      res.writeHead(401, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: 'unauthorized' }));
+      return;
+    }
     try {
       const { slot, dataUrl } = await readJsonBody(req);
       if (!assetSlots.includes(slot) || typeof dataUrl !== 'string') throw new Error('bad input');

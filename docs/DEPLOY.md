@@ -117,6 +117,18 @@ DNS A record at the VPS IP.
 
 ---
 
+## Admin asset panel
+
+The backend serves a built-in upload page for the game logo, character cards, vote/mission
+cards, captain crown, and faction stamps. Images are stored on disk (the `uploads` Docker
+volume) and served at `/uploads/<slot>`; the Android app loads them by slot via Coil and
+falls back to text when a slot is empty.
+
+- Set **`ADMIN_TOKEN`** (in the root `.env`, injected by compose). Required for any public
+  deployment — without it the page is open.
+- Open `https://game.arafatbikecare.com/admin?key=YOUR_ADMIN_TOKEN` and upload per slot.
+- `GET /assets/catalog` (public) lists which slots have images.
+
 ## Checklist
 - [ ] `docker compose up -d --build` → `/health` returns `store:pg`
 - [ ] Ran the one-off migration
