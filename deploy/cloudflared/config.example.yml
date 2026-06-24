@@ -1,0 +1,22 @@
+# Cloudflare Tunnel config — exposes the local/Docker backend at a public hostname
+# with automatic TLS and WebSocket support (Socket.IO works over CF tunnels).
+#
+# Setup (run on the machine hosting the backend):
+#   1. Add arafatbikecare.com to Cloudflare (DNS managed by Cloudflare).
+#   2. Install cloudflared: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/
+#   3. cloudflared tunnel login
+#   4. cloudflared tunnel create polashi          # note the Tunnel ID + creds json path
+#   5. cloudflared tunnel route dns polashi game.arafatbikecare.com
+#   6. Put this file at ~/.cloudflared/config.yml (fill in tunnel id + credentials path)
+#   7. cloudflared tunnel run polashi             # or install as a service: cloudflared service install
+
+tunnel: <YOUR_TUNNEL_ID>
+credentials-file: /root/.cloudflared/<YOUR_TUNNEL_ID>.json
+
+ingress:
+  - hostname: game.arafatbikecare.com
+    service: http://localhost:3000
+    originRequest:
+      noTLSVerify: true
+  # Everything else returns 404.
+  - service: http_status:404

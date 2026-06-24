@@ -1,0 +1,54 @@
+# Polashi backend stack: Node server + Postgres + Redis.
+# Usage:
+#   docker compose up -d --build          # start everything
+#   docker compose run --rm backend node dist/db/migrate.js   # create tables (first run)
+#   docker compose logs -f backend
+#
+# Change SESSION_SECRET and POSTGRES_PASSWORD before any public deployment.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: polashi
+      POSTGRES_USER: polashi
+      POSTGRES_PASSWORD: change-me-strong-password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U polashi -d polashi"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      PORT: "3000"
+      CORS_ORIGIN: "*"
+      SESSION_SECRET: change-me-to-a-long-random-string
+      DATABASE_URL: postgres://polashi:change-me-strong-password@postgres:5432/polashi
+      REDIS_URL: redis://redis:6379
+      TURN_TIMEOUT_MS: "60000"
+      ROOM_TTL_MS: "3600000"
+    ports:
+      - "3000:3000" # host:container — the tunnel/reverse-proxy points here
+    restart: unless-stopped
+
+volumes:
+  pgdata:
