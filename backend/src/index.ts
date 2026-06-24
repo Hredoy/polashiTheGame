@@ -3,7 +3,7 @@
 
 import { createServer } from 'node:http';
 import type { IncomingMessage } from 'node:http';
-import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
 import { extname, join } from 'node:path';
 import { Server } from 'socket.io';
 import { hasDatabase } from './db/pool.js';
@@ -95,22 +95,32 @@ async function readJsonBody(req: IncomingMessage): Promise<any> {
   return JSON.parse(body);
 }
 
-async function assetCatalog(): Promise<Record<string, string | null>> {
+// Catalog of asset slots. `assets` maps slot -> served URL (for the admin grid); `versions`
+// maps slot -> file mtime in ms (or null). Clients append ?v=<version> so a new upload
+// changes the URL and busts the week-long client cache; unchanged images stay cached.
+async function assetCatalog(): Promise<{
+  assets: Record<string, string | null>;
+  versions: Record<string, number | null>;
+}> {
   const assets: Record<string, string | null> = {};
+  const versions: Record<string, number | null> = {};
   for (const slot of assetSlots) {
-    let found: string | null = null;
+    let url: string | null = null;
+    let version: number | null = null;
     for (const ext of Object.keys(contentTypes)) {
       try {
-        await readFile(join(uploadDir, `${slot}${ext}`));
-        found = `/uploads/${slot}${ext}`;
+        const s = await stat(join(uploadDir, `${slot}${ext}`));
+        version = Math.floor(s.mtimeMs);
+        url = `/uploads/${slot}${ext}?v=${version}`;
         break;
       } catch {
         // Try the next extension.
       }
     }
-    assets[slot] = found;
+    assets[slot] = url;
+    versions[slot] = version;
   }
-  return assets;
+  return { assets, versions };
 }
 
 const store: RoomStore = hasDatabase() ? new PgStore() : new MemoryStore();
@@ -159,8 +169,9 @@ p{font-size:18px;line-height:1.5;color:#dfd0b1}a{color:#f3c767;font-weight:700}
     return;
   }
   if (req.method === 'GET' && req.url === '/assets/catalog') {
-    res.writeHead(200, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({ assets: await assetCatalog() }));
+    const { assets, versions } = await assetCatalog();
+    res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-cache' });
+    res.end(JSON.stringify({ assets, versions }));
     return;
   }
   if (req.method === 'GET' && req.url?.startsWith('/uploads/')) {
@@ -189,7 +200,12 @@ p{font-size:18px;line-height:1.5;color:#dfd0b1}a{color:#f3c767;font-weight:700}
       }
       if (!fileName) throw new Error('missing asset');
       const file = await readFile(join(uploadDir, fileName));
-      res.writeHead(200, { 'content-type': contentTypes[extname(fileName)] ?? 'application/octet-stream' });
+      // A versioned URL (?v=mtime) is immutable, so clients may cache it for a week. A new
+      // upload changes the version (URL), which fetches fresh without waiting out the TTL.
+      res.writeHead(200, {
+        'content-type': contentTypes[extname(fileName)] ?? 'application/octet-stream',
+        'cache-control': 'public, max-age=604800, immutable',
+      });
       res.end(file);
     } catch {
       res.writeHead(404);

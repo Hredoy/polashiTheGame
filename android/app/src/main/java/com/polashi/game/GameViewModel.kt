@@ -62,7 +62,12 @@ class GameViewModel(
     // ---- connection ----
     // Pass a previously saved token to keep the same identity; null on first launch.
     // After `session` arrives, persist session.value.token (DataStore) for next time.
-    fun connect(token: String?, name: String) = socket.connect(token, name)
+    fun connect(token: String?, name: String) {
+        socket.connect(token, name)
+        // Pull the small asset version catalog so image URLs are versioned (cache-bust on
+        // new uploads); the images themselves stay disk-cached for a week.
+        viewModelScope.launch { com.polashi.ui.AssetCatalog.refresh() }
+    }
 
     // ---- room lifecycle ----
     fun createRoom() = socket.emit("room:create")
