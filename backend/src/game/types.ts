@@ -140,6 +140,7 @@ export interface GameState {
   wins: Record<Side, number>;
   finalGuess: FinalGuessState | null;
   spy: SpyState | null; // non-null only when settings.spyVariant is enabled
+  botSuggested: boolean; // lobby: nobody joined within the timeout — prompt the host re: bots
   winner: Side | null;
 
   version: number; // optimistic-lock / event ordering

@@ -139,6 +139,15 @@ export function attachSockets(io: Server, service: GameService): void {
       await apply({ type: 'SET_SETTINGS', actorId: data.userId, settings });
     });
 
+    handle('bots:add', async (p) => {
+      const { count } = z.object({ count: z.number().int().min(1).max(9) }).parse(p);
+      const roomId = data.roomId;
+      if (!roomId) throw new GameError('NO_ROOM', 'Not in a room');
+      await service.addBots(roomId, data.userId, count);
+      await broadcastViews(io, roomId, service);
+      if (await service.driveBots(roomId)) await broadcastViews(io, roomId, service);
+    });
+
     handle('game:start', async () => {
       await apply({ type: 'START_GAME', actorId: data.userId });
     });

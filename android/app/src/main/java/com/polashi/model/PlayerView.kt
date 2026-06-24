@@ -22,6 +22,7 @@ data class PlayerView(
     val failedProposals: Int = 0,
     val finalGuess: FinalGuessView? = null,
     val spy: SpyView? = null,
+    val botSuggested: Boolean = false,
     val winner: String? = null,
     val rolesReveal: Map<String, String>? = null,
 )

@@ -64,6 +64,8 @@ export interface PlayerView {
   // Only meaningful to Mir Modon during FINAL_GUESS; null otherwise.
   finalGuess: { isMine: boolean; targetId?: string; correct?: boolean } | null;
   spy: SpyView | null;
+  // Lobby bot prompt: set once the join timeout passes with too few players.
+  botSuggested: boolean;
   winner: Side | null;
   // Revealed to everyone only at GAME_OVER.
   rolesReveal?: Record<string, CharacterKey>;
@@ -168,6 +170,7 @@ export function buildPlayerView(state: GameState, recipientId: string): PlayerVi
     failedProposals: state.failedProposals,
     finalGuess,
     spy,
+    botSuggested: state.botSuggested,
     winner: state.winner,
     ...(isOver ? { rolesReveal: state.roles } : {}),
   };

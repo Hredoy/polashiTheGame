@@ -109,21 +109,34 @@ export class GameService {
     return this.store.deleteStaleRooms(['GAME_OVER', 'LOBBY'], olderThanMs);
   }
 
-  // Fill idle lobbies (no activity for olderThanMs) with bots up to the minimum player count.
-  // Returns the room ids that were filled.
-  async fillIdleLobbies(olderThanMs: number): Promise<string[]> {
+  // After the timeout with too few players, flag idle lobbies so the host gets prompted
+  // about bots (the host decides whether to add any, and how many). Returns affected ids.
+  async suggestBotsForIdleLobbies(olderThanMs: number): Promise<string[]> {
     const ids = await this.store.roomsNeedingTimeout(['LOBBY'], olderThanMs);
-    const filled: string[] = [];
+    const flagged: string[] = [];
     for (const id of ids) {
       const rec = await this.store.getById(id);
-      if (!rec || rec.state.players.length >= MIN_PLAYERS) continue;
-      for (let i = rec.state.players.length; i < MIN_PLAYERS; i++) {
-        const name = `${BOT_NAMES[i % BOT_NAMES.length]} 🤖`;
-        await this.apply(id, { type: 'ADD_BOT', botId: nanoid(), name });
-      }
-      filled.push(id);
+      if (!rec || rec.state.players.length >= MIN_PLAYERS || rec.state.botSuggested) continue;
+      await this.apply(id, { type: 'SUGGEST_BOTS' });
+      flagged.push(id);
     }
-    return filled;
+    return flagged;
+  }
+
+  // Host-confirmed bot fill: add `count` bots (host only, lobby only, capped to room size).
+  async addBots(roomId: string, requesterId: string, count: number): Promise<GameState> {
+    const rec = await this.store.getById(roomId);
+    if (!rec) throw new GameError('NO_ROOM', 'Room not found');
+    if (rec.state.status !== 'LOBBY') throw new GameError('WRONG_PHASE', 'Bots only in the lobby');
+    if (rec.state.hostId !== requesterId) throw new GameError('NOT_HOST', 'Only the host adds bots');
+    const room = 10 - rec.state.players.length;
+    const n = Math.max(0, Math.min(count, room));
+    let state = rec.state;
+    for (let i = 0; i < n; i++) {
+      const name = `${BOT_NAMES[(rec.state.players.length + i) % BOT_NAMES.length]} 🤖`;
+      state = await this.apply(roomId, { type: 'ADD_BOT', botId: nanoid(), name });
+    }
+    return state;
   }
 
   // Apply pending bot actions for a room until none remain (bounded). Returns whether any

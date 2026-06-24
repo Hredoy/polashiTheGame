@@ -71,6 +71,7 @@ class GameViewModel(
 
     // ---- lobby ----
     fun setReady(ready: Boolean) = socket.emit("player:ready", JSONObject().put("ready", ready))
+    fun addBots(count: Int) = socket.emit("bots:add", JSONObject().put("count", count))
     fun startGame() = socket.emit("game:start")
 
     // ---- in-game ----

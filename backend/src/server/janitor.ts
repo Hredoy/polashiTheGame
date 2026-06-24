@@ -23,9 +23,9 @@ export function startJanitor(service: GameService, opts: JanitorOptions = {}): (
     if (running) return; // never overlap sweeps
     running = true;
     try {
-      // Top up idle lobbies with bots, then let bots act (a bot host will start the game).
-      for (const roomId of await service.fillIdleLobbies(botFillMs)) {
-        await service.driveBots(roomId);
+      // After the timeout, flag under-filled lobbies so the host gets prompted about bots
+      // (bots are added only if the host confirms — they are never auto-joined).
+      for (const roomId of await service.suggestBotsForIdleLobbies(botFillMs)) {
         await opts.onRoomChanged?.(roomId);
       }
       // Resolve stalled turns, then let bots react to the new phase.

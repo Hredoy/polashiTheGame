@@ -12,6 +12,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -19,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.polashi.game.GameViewModel
 import com.polashi.ui.components.DangerButton
+import com.polashi.ui.components.GhostButton
 import com.polashi.ui.components.PolashiPanel
 import com.polashi.ui.components.PrimaryButton
 import com.polashi.ui.components.WarBackground
@@ -66,6 +70,36 @@ fun LobbyScreen(vm: GameViewModel) {
                                 fontWeight = FontWeight.SemiBold,
                             )
                         }
+                    }
+                }
+            }
+
+            // Host-only bot fill — always a confirmation (never auto-joined). Highlighted
+            // once the server suggests bots (nobody joined within the timeout).
+            if (amHost && v.players.size < 10) {
+                val maxBots = 10 - v.players.size
+                var botCount by remember(v.players.size) {
+                    mutableStateOf(minOf(maxBots, maxOf(1, 5 - v.players.size)))
+                }
+                PolashiPanel(Modifier.fillMaxWidth()) {
+                    Text(
+                        if (v.botSuggested) "কেউ যোগ দেয়নি — বট যোগ করবেন?" else "বট যোগ করুন",
+                        color = if (v.botSuggested) PolashiColors.Eic else PolashiColors.Ink,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Row(
+                        Modifier.fillMaxWidth().padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        GhostButton("−", onClick = { if (botCount > 1) botCount-- })
+                        Text("$botCount", color = PolashiColors.Ink, fontWeight = FontWeight.Black, fontSize = 20.sp)
+                        GhostButton("+", onClick = { if (botCount < maxBots) botCount++ })
+                        PrimaryButton(
+                            "বট যোগ করুন ($botCount)",
+                            onClick = { vm.addBots(botCount) },
+                            modifier = Modifier.weight(1f),
+                        )
                     }
                 }
             }

@@ -29,7 +29,8 @@ import {
 export type Action =
   // Lobby actions
   | { type: 'JOIN'; actorId: string; name: string }
-  | { type: 'ADD_BOT'; botId: string; name: string } // system-initiated bot fill
+  | { type: 'ADD_BOT'; botId: string; name: string } // one bot (host-confirmed, via service)
+  | { type: 'SUGGEST_BOTS' } // system: mark that the host should be prompted about bots
   | { type: 'LEAVE'; actorId: string }
   | { type: 'SET_READY'; actorId: string; ready: boolean }
   | { type: 'SET_CONNECTED'; actorId: string; connected: boolean }
@@ -102,6 +103,7 @@ export function createLobby(
     wins: { NAWAB: 0, EIC: 0 },
     finalGuess: null,
     spy: null,
+    botSuggested: false,
     winner: null,
     version: 0,
   };
@@ -133,6 +135,9 @@ export function reduce(state: GameState, action: Action, ctx: ReduceContext): Ga
       return join(state, action.actorId, action.name);
     case 'ADD_BOT':
       return addBot(state, action.botId, action.name);
+    case 'SUGGEST_BOTS':
+      requirePhase(state, 'LOBBY');
+      return bump({ ...state, botSuggested: true });
     case 'LEAVE':
       return leave(state, action.actorId);
     case 'SET_READY':
