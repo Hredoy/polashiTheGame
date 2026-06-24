@@ -5,10 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -18,127 +14,157 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.polashi.model.PlayerView
 import com.polashi.ui.Characters
-import com.polashi.ui.components.PlayerList
-import com.polashi.ui.theme.EicRed
-import com.polashi.ui.theme.NawabGreen
+import com.polashi.ui.components.AvatarFaction
+import com.polashi.ui.components.MissionCardOption
+import com.polashi.ui.components.PlayerAvatar
+import com.polashi.ui.components.PolashiPanel
+import com.polashi.ui.components.PrimaryButton
+import com.polashi.ui.components.SealFaction
+import com.polashi.ui.components.SectionBanner
+import com.polashi.ui.components.WaxSeal
+import com.polashi.ui.theme.PolashiColors
 
-/** ROLE_REVEAL: shows the player's own character + power + any night-reveal knowledge. */
+private fun sideFaction(side: String?) = when (side) {
+    "NAWAB" -> AvatarFaction.NAWAB
+    "EIC" -> AvatarFaction.EIC
+    else -> AvatarFaction.NEUTRAL
+}
+
+/** A wrap of player avatars (chunked into rows of 4), with optional selection. */
 @Composable
-fun RoleRevealContent(view: PlayerView, onAck: () -> Unit) {
-    val self = view.self ?: return
-    Column(
-        Modifier.fillMaxWidth().padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text("Your character", style = MaterialTheme.typography.titleMedium)
-        Card(colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Characters.sideColor(self.side).copy(alpha = 0.15f))) {
-            Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(Characters.name(self.characterKey), style = MaterialTheme.typography.headlineSmall)
-                Text(Characters.sideLabel(self.side), color = Characters.sideColor(self.side), fontWeight = FontWeight.Bold)
-                Characters.power(self.characterKey)?.let {
-                    Text(it, Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodyMedium)
+private fun AvatarGrid(
+    view: PlayerView,
+    myUserId: String?,
+    selectable: Boolean = false,
+    selected: Set<String> = emptySet(),
+    onToggle: (String) -> Unit = {},
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        view.players.chunked(4).forEach { rowPlayers ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                rowPlayers.forEach { p ->
+                    PlayerAvatar(
+                        name = p.name,
+                        faction = if (p.id == myUserId) sideFaction(view.self?.side) else AvatarFaction.NEUTRAL,
+                        isShobapoti = p.isShobapoti,
+                        selected = p.id in selected || p.id in (view.current?.memberIds ?: emptyList()),
+                        dimmed = !p.connected,
+                        onClick = if (selectable) ({ onToggle(p.id) }) else null,
+                    )
                 }
             }
         }
-
-        if (self.reveals.isNotEmpty()) {
-            Text("What you know:", fontWeight = FontWeight.Bold)
-            self.reveals.forEach { r ->
-                val who = view.players.firstOrNull { it.id == r.playerId }?.name ?: "?"
-                val label = when (r.label) {
-                    "EIC" -> "$who is EIC"
-                    "EIC_ALLY" -> "$who is your EIC ally"
-                    "MIR_MODON_CANDIDATE" -> "$who looks like Mir Modon"
-                    else -> who
-                }
-                Text("• $label")
-            }
-        }
-
-        Button(onClick = onAck, modifier = Modifier.fillMaxWidth()) { Text("I'm ready") }
-        Text("Waiting for ${view.players.count { !it.ackedRole }} more…", style = MaterialTheme.typography.bodySmall)
     }
 }
 
-/** TEAM_PROPOSAL: the Shobapoti selects the mission team; everyone else waits. */
+/** ROLE_REVEAL: own character + power + night-reveal knowledge. */
+@Composable
+fun RoleRevealContent(view: PlayerView, onAck: () -> Unit) {
+    val self = view.self ?: return
+    PolashiPanel(Modifier.fillMaxWidth()) {
+        Text("আপনার চরিত্র", color = PolashiColors.InkSoft, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+        Text(
+            Characters.name(self.characterKey),
+            color = Characters.sideColor(self.side),
+            fontWeight = FontWeight.Black,
+            fontSize = 30.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+        )
+        Text(Characters.sideLabel(self.side), color = PolashiColors.Ink, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+        Characters.power(self.characterKey)?.let {
+            Text(it, color = PolashiColors.InkSoft, fontSize = 14.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
+        }
+        if (self.reveals.isNotEmpty()) {
+            Text("আপনি যা জানেন:", color = PolashiColors.Ink, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp))
+            self.reveals.forEach { r ->
+                val who = view.players.firstOrNull { it.id == r.playerId }?.name ?: "?"
+                val label = when (r.label) {
+                    "EIC" -> "$who — ইস্ট ইন্ডিয়া কোম্পানি"
+                    "EIC_ALLY" -> "$who — আপনার সহযোগী"
+                    "MIR_MODON_CANDIDATE" -> "$who — মীর মদন হতে পারে"
+                    else -> who
+                }
+                Text("• $label", color = PolashiColors.InkSoft)
+            }
+        }
+        PrimaryButton("বোঝেছি", onClick = onAck, modifier = Modifier.fillMaxWidth().padding(top = 16.dp))
+        Text(
+            "বাকি ${view.players.count { !it.ackedRole }} জনের অপেক্ষা…",
+            color = PolashiColors.InkSoft,
+            fontSize = 12.sp,
+            modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+/** TEAM_PROPOSAL: Shobapoti selects the mission team; others wait. */
 @Composable
 fun TeamProposalContent(view: PlayerView, myUserId: String?, onPropose: (List<String>) -> Unit) {
     val me = view.players.firstOrNull { it.id == myUserId }
     val teamSize = view.chapters.firstOrNull { it.index == view.chapterIndex }?.teamSize ?: 0
     var selected by remember(view.version) { mutableStateOf(setOf<String>()) }
 
-    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         if (me?.isShobapoti == true) {
-            Text("You are Shobapoti — pick $teamSize for the mission", fontWeight = FontWeight.Bold)
-            PlayerList(
-                view = view,
-                myUserId = myUserId,
-                modifier = Modifier.fillMaxWidth().weight(1f, fill = false),
-                selectable = true,
-                selected = selected,
-                onToggle = { id ->
+            SectionBanner("টিম নির্বাচন করুন", "প্রয়োজনীয় সদস্য: $teamSize জন")
+            PolashiPanel(Modifier.fillMaxWidth(), fill = com.polashi.ui.theme.PolashiBrushes.warNight) {
+                AvatarGrid(view, myUserId, selectable = true, selected = selected, onToggle = { id ->
                     selected = when {
                         id in selected -> selected - id
                         selected.size < teamSize -> selected + id
                         else -> selected
                     }
-                },
-            )
-            Button(
+                })
+            }
+            PrimaryButton(
+                "টিম প্রস্তাব করুন (${selected.size}/$teamSize)",
                 onClick = { onPropose(selected.toList()) },
                 enabled = selected.size == teamSize,
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Propose team (${selected.size}/$teamSize)") }
+            )
         } else {
             val leader = view.players.firstOrNull { it.isShobapoti }?.name ?: "?"
-            Text("$leader is choosing a team of $teamSize…", fontWeight = FontWeight.Bold)
-            PlayerList(view, myUserId, Modifier.fillMaxWidth())
+            SectionBanner("$leader টিম নির্বাচন করছেন", "$teamSize জন প্রয়োজন")
+            AvatarGrid(view, myUserId)
         }
         if (view.failedProposals > 0) {
-            Text("Failed proposals this chapter: ${view.failedProposals}/5", color = EicRed)
+            Text("ব্যর্থ প্রস্তাব: ${view.failedProposals} / ৫", color = PolashiColors.EicBright, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
         }
     }
 }
 
-/** VOTING: approve or reject the proposed team. */
+/** VOTING: approve/reject the proposed team with wax seals. */
 @Composable
 fun VotingContent(view: PlayerView, myUserId: String?, onVote: (String) -> Unit) {
     val proposal = view.current ?: return
     val hasVoted = myUserId in proposal.votedPlayerIds
     val teamNames = proposal.memberIds.mapNotNull { id -> view.players.firstOrNull { it.id == id }?.name }
 
-    Column(
-        Modifier.fillMaxWidth().padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text("Proposed team", style = MaterialTheme.typography.titleMedium)
-        Text(teamNames.joinToString(", "), fontWeight = FontWeight.Bold)
-
+    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        SectionBanner("টিম অনুমোদন ভোট", "প্রস্তাবিত: ${teamNames.joinToString(", ")}")
         if (hasVoted) {
-            Text("Vote cast. Waiting… (${proposal.votedPlayerIds.size}/${view.players.size})")
+            Text(
+                "ভোট দেওয়া হয়েছে। অপেক্ষা… (${proposal.votedPlayerIds.size}/${view.players.size})",
+                color = PolashiColors.Cream, textAlign = TextAlign.Center,
+            )
         } else {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Button(
-                    onClick = { onVote("YES") },
-                    colors = ButtonDefaults.buttonColors(containerColor = NawabGreen),
-                    modifier = Modifier.weight(1f),
-                ) { Text("হ্যাঁ  Yes") }
-                Button(
-                    onClick = { onVote("NO") },
-                    colors = ButtonDefaults.buttonColors(containerColor = EicRed),
-                    modifier = Modifier.weight(1f),
-                ) { Text("না  No") }
+            Text("এই টিম অনুমোদন করবেন?", color = PolashiColors.Cream, fontSize = 16.sp)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                WaxSeal("হ্যাঁ", SealFaction.YES, onClick = { onVote("YES") })
+                WaxSeal("না", SealFaction.NO, onClick = { onVote("NO") })
             }
         }
     }
 }
 
-/** MISSION: selected team members play a Success/Betrayer card. */
+/** MISSION: selected members play a Success/Betrayer card. */
 @Composable
 fun MissionContent(view: PlayerView, myUserId: String?, onSubmit: (String) -> Unit) {
     val proposal = view.current ?: return
@@ -146,33 +172,19 @@ fun MissionContent(view: PlayerView, myUserId: String?, onSubmit: (String) -> Un
     val isNawab = view.self?.side == "NAWAB"
     var submitted by remember(view.version) { mutableStateOf(false) }
 
-    Column(
-        Modifier.fillMaxWidth().padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text("The mission", style = MaterialTheme.typography.titleMedium)
-        if (!onTeam) {
-            Text("Not on this mission. Waiting for the team to act…")
-            return@Column
-        }
-        if (submitted) {
-            Text("Card played. Waiting for the rest of the team…")
-            return@Column
-        }
-        Text(if (isNawab) "As Nawab, you must play Success." else "Play Success or Betrayer.")
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Button(
-                onClick = { onSubmit("SUCCESS"); submitted = true },
-                colors = ButtonDefaults.buttonColors(containerColor = NawabGreen),
-                modifier = Modifier.weight(1f),
-            ) { Text("Success") }
-            if (!isNawab) {
-                Button(
-                    onClick = { onSubmit("BETRAYER"); submitted = true },
-                    colors = ButtonDefaults.buttonColors(containerColor = EicRed),
-                    modifier = Modifier.weight(1f),
-                ) { Text("Betrayer") }
+    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        SectionBanner("মিশন কার্ড জমা দিন", "আপনি নির্বাচিত সদস্য")
+        when {
+            !onTeam -> Text("আপনি এই মিশনে নেই। অপেক্ষা করুন…", color = PolashiColors.Cream)
+            submitted -> Text("কার্ড জমা হয়েছে। বাকিদের অপেক্ষা…", color = PolashiColors.Cream)
+            else -> {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    MissionCardOption("সফল", "নবাবের জয়", win = true, onClick = { onSubmit("SUCCESS"); submitted = true }, modifier = Modifier.weight(1f))
+                    if (!isNawab) {
+                        MissionCardOption("ব্যর্থ", "ইস্ট ইন্ডিয়ার জয়", win = false, onClick = { onSubmit("BETRAYER"); submitted = true }, modifier = Modifier.weight(1f))
+                    }
+                }
+                if (isNawab) Text("নবাব পক্ষ হিসেবে আপনাকে সফল কার্ড খেলতে হবে।", color = PolashiColors.CreamDim, fontSize = 12.sp)
             }
         }
     }

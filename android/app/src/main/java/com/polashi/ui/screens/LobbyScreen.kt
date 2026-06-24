@@ -8,9 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -19,66 +16,77 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.polashi.game.GameViewModel
+import com.polashi.ui.components.DangerButton
+import com.polashi.ui.components.PolashiPanel
+import com.polashi.ui.components.PrimaryButton
+import com.polashi.ui.components.WarBackground
+import com.polashi.ui.theme.PolashiColors
 
-/**
- * Waiting lobby: room code, player list with ready state, and Ready / Start controls.
- * Renders purely from PlayerView. Once status leaves LOBBY, the game-board flow takes over
- * (TODO: a GameBoardScreen that switches by status; this scaffold only handles LOBBY).
- */
+/** Waiting lobby: room code, player list + ready state, start/leave controls. */
 @Composable
 fun LobbyScreen(vm: GameViewModel) {
     val view by vm.view.collectAsState()
     val code by vm.roomCode.collectAsState()
     val session by vm.session.collectAsState()
     val v = view ?: return
-
-    if (v.status != "LOBBY") {
-        // Placeholder until the in-game screens are implemented.
-        Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center) {
-            Text("Phase: ${v.status}", style = MaterialTheme.typography.headlineSmall)
-            Text("Chapter ${v.chapterIndex} • Nawab ${v.wins["NAWAB"] ?: 0} – ${v.wins["EIC"] ?: 0} EIC")
-            v.self?.let { Text("You are: ${it.characterKey} (${it.side})") }
-        }
-        return
-    }
+    if (v.status != "LOBBY") return // in-game flow handled by GameBoardScreen
 
     val me = v.players.firstOrNull { it.id == session?.userId }
     val amHost = me != null && v.players.minByOrNull { it.seatIndex }?.id == me.id
     val allReady = v.players.size in 5..10 && v.players.all { it.ready }
 
-    Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Room ${code ?: v.roomId}", style = MaterialTheme.typography.titleLarge)
-        Text("${v.players.size}/10 players (need 5+)", color = MaterialTheme.colorScheme.onSurface)
+    WarBackground {
+        Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column {
+                    Text("রুম কোড", color = PolashiColors.CreamDim, fontSize = 12.sp)
+                    Text(code ?: v.roomId.take(6), color = PolashiColors.GoldBright, fontWeight = FontWeight.Black, fontSize = 24.sp)
+                }
+                Text("প্লেয়ার ${v.players.size}/১০", color = PolashiColors.Cream)
+            }
 
-        LazyColumn(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(v.players, key = { it.id }) { p ->
-                Card {
-                    Row(
-                        Modifier.fillMaxWidth().padding(12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            p.name + if (p.id == session?.userId) " (you)" else "",
-                            fontWeight = if (p.ready) FontWeight.Bold else FontWeight.Normal,
-                        )
-                        Text(if (p.ready) "Ready" else "…")
+            PolashiPanel(Modifier.fillMaxWidth().weight(1f)) {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(v.players, key = { it.id }) { p ->
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                "${p.seatIndex + 1}. ${p.name}" + if (p.id == session?.userId) "  (you)" else "",
+                                color = PolashiColors.Ink,
+                                fontWeight = if (p.ready) FontWeight.Bold else FontWeight.Normal,
+                            )
+                            Text(
+                                if (p.ready) "রেডি ✓" else "অপেক্ষমান…",
+                                color = if (p.ready) PolashiColors.Nawab else PolashiColors.InkSoft,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
                     }
                 }
             }
-        }
 
-        val iAmReady = me?.ready == true
-        Button(onClick = { vm.setReady(!iAmReady) }, modifier = Modifier.fillMaxWidth()) {
-            Text(if (iAmReady) "Unready" else "Ready")
-        }
-        if (amHost) {
-            Button(
-                onClick = { vm.startGame() },
-                enabled = allReady,
+            val iAmReady = me?.ready == true
+            PrimaryButton(
+                if (iAmReady) "রেডি বাতিল" else "রেডি",
+                onClick = { vm.setReady(!iAmReady) },
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text(if (allReady) "Start Game" else "Waiting for players…") }
+            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                DangerButton("রুম ত্যাগ করুন", onClick = { /* TODO: leave + nav home */ }, modifier = Modifier.weight(1f))
+                if (amHost) {
+                    PrimaryButton(
+                        if (allReady) "গেম শুরু করুন" else "অপেক্ষা…",
+                        onClick = { vm.startGame() },
+                        enabled = allReady,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
         }
     }
 }

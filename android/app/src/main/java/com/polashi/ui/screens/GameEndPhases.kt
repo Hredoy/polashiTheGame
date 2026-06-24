@@ -2,25 +2,44 @@ package com.polashi.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.polashi.model.PlayerView
 import com.polashi.ui.Characters
-import com.polashi.ui.theme.EicRed
-import com.polashi.ui.theme.NawabGreen
+import com.polashi.ui.components.GhostButton
+import com.polashi.ui.components.GoldButton
+import com.polashi.ui.components.PolashiPanel
+import com.polashi.ui.components.PrimaryButton
+import com.polashi.ui.components.SectionBanner
+import com.polashi.ui.theme.PolashiColors
 
-/** CHAPTER_RESULT: who won the chapter, plus host's Advance or the spy's Investigate. */
+/** Big faction-win banner used by chapter results and game over. */
+@Composable
+private fun WinBanner(side: String?) {
+    val nawab = side == "NAWAB"
+    PolashiPanel(
+        Modifier.fillMaxWidth(),
+        fill = if (nawab) com.polashi.ui.theme.PolashiBrushes.nawabBanner else com.polashi.ui.theme.PolashiBrushes.eicBanner,
+    ) {
+        Text(if (nawab) "⚑" else "⚑", color = PolashiColors.Cream, fontSize = 40.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+        Text(
+            if (nawab) "নবাব পক্ষ জয়ী!" else "ইস্ট ইন্ডিয়া কোম্পানি জয়ী!",
+            color = PolashiColors.Cream, fontWeight = FontWeight.Black, fontSize = 26.sp,
+            textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+/** CHAPTER_RESULT: win banner + card tally + host advance / spy investigate. */
 @Composable
 fun ChapterResultContent(
     view: PlayerView,
@@ -30,124 +49,96 @@ fun ChapterResultContent(
     onInvestigate: (String) -> Unit,
 ) {
     val chapter = view.chapters.firstOrNull { it.index == view.chapterIndex }
-    val winner = chapter?.winner
-    Column(
-        Modifier.fillMaxWidth().padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text("Chapter ${view.chapterIndex} result", style = MaterialTheme.typography.titleMedium)
-        Text(
-            if (winner == "NAWAB") "নবাব পক্ষ won the chapter" else "EIC পক্ষ won the chapter",
-            color = Characters.sideColor(winner),
-            fontWeight = FontWeight.Bold,
-            style = MaterialTheme.typography.headlineSmall,
-        )
-        chapter?.betrayerCount?.let { Text("Betrayer cards played: $it") }
+    val betrayers = chapter?.betrayerCount ?: 0
+    val success = (chapter?.teamSize ?: 0) - betrayers
 
-        // Spy variant: the current spy must investigate before the chapter advances.
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        WinBanner(chapter?.winner)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+            TallyChip("সফল কার্ড", success, PolashiColors.Nawab)
+            TallyChip("ব্যর্থ কার্ড", betrayers, PolashiColors.Eic)
+        }
+
         val spy = view.spy
         if (spy?.mustInvestigate == true) {
-            Text("Gupchor: investigate one player's loyalty", fontWeight = FontWeight.Bold)
+            SectionBanner("গুপ্তচর তদন্ত", "একজনের আনুগত্য যাচাই করুন")
             spy.eligibleTargetIds.forEach { id ->
                 val name = view.players.firstOrNull { it.id == id }?.name ?: "?"
-                OutlinedButton(onClick = { onInvestigate(id) }, modifier = Modifier.fillMaxWidth()) {
-                    Text("Investigate $name")
-                }
+                GhostButton("তদন্ত: $name", onClick = { onInvestigate(id) }, modifier = Modifier.fillMaxWidth())
             }
         } else {
             spy?.myFindings?.lastOrNull()?.let { f ->
                 val name = view.players.firstOrNull { it.id == f.targetId }?.name ?: "?"
-                Text("You learned: $name plays for ${Characters.sideLabel(f.seenSide)}", color = Characters.sideColor(f.seenSide))
+                Text("আপনি জানলেন: $name → ${Characters.sideLabel(f.seenSide)}", color = Characters.sideColor(f.seenSide))
             }
             if (amHost) {
-                // Game ends when EIC reaches 3, Nawab reaches 4, or all 5 chapters are played.
-                val nawab = view.wins["NAWAB"] ?: 0
-                val eic = view.wins["EIC"] ?: 0
-                val decisive = eic >= 3 || nawab >= 4 || view.chapterIndex >= 5
-                Button(onClick = onAdvance, modifier = Modifier.fillMaxWidth()) {
-                    Text(if (decisive) "Continue" else "Next chapter")
-                }
+                PrimaryButton("চালিয়ে যান", onClick = onAdvance, modifier = Modifier.fillMaxWidth())
             } else {
-                Text("Waiting for the host…", style = MaterialTheme.typography.bodySmall)
+                Text("সেনাপতির অপেক্ষা…", color = PolashiColors.CreamDim, fontSize = 12.sp)
             }
         }
     }
 }
 
-/** FINAL_GUESS: Mir Modon names Mir Zafar to clinch the Nawab victory. */
+@Composable
+private fun TallyChip(label: String, value: Int, color: androidx.compose.ui.graphics.Color) {
+    PolashiPanel(Modifier.padding(4.dp)) {
+        Text(label, color = PolashiColors.InkSoft, fontSize = 12.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+        Text("$value", color = color, fontWeight = FontWeight.Black, fontSize = 30.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+    }
+}
+
+/** FINAL_GUESS: Mir Modon names Mir Zafar. */
 @Composable
 fun FinalGuessContent(view: PlayerView, myUserId: String?, onGuess: (String) -> Unit) {
-    Column(
-        Modifier.fillMaxWidth().padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        SectionBanner("শেষ সুযোগ", "মীর জাফরকে চিহ্নিত করুন")
         if (view.finalGuess?.isMine == true) {
-            Text("Nawab won 3 chapters!", color = NawabGreen, fontWeight = FontWeight.Bold)
-            Text("You are Mir Modon. Name Mir Zafar to win it all:")
+            PolashiPanel(Modifier.fillMaxWidth()) {
+                Text(
+                    "নবাব পক্ষ ৩ অধ্যায় জিতেছে। মীর মদন, আপনি মীর জাফরকে চিহ্নিত করুন।",
+                    color = PolashiColors.Ink, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
+                )
+            }
             view.players.filter { it.id != myUserId }.forEach { p ->
-                OutlinedButton(onClick = { onGuess(p.id) }, modifier = Modifier.fillMaxWidth()) {
-                    Text(p.name)
-                }
+                GhostButton(p.name, onClick = { onGuess(p.id) }, modifier = Modifier.fillMaxWidth())
             }
         } else {
-            Text("Mir Modon is identifying Mir Zafar…", fontWeight = FontWeight.Bold)
+            Text("মীর মদন মীর জাফরকে খুঁজছেন…", color = PolashiColors.Cream, fontWeight = FontWeight.Bold)
         }
     }
 }
 
-/** GAME_OVER: winner banner + full role reveal. */
+/** GAME_OVER: victory/defeat banner + full role reveal. */
 @Composable
 fun GameOverContent(view: PlayerView, myUserId: String?, onHistory: () -> Unit) {
     val winner = view.winner
-    val mySide = view.self?.side
-    val iWon = mySide != null && mySide == winner
-    Column(
-        Modifier.fillMaxWidth().padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(
-            if (winner == "NAWAB") "নবাব পক্ষ জয়ী" else "EIC পক্ষ জয়ী",
-            color = Characters.sideColor(winner),
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-        )
-        Text(if (iWon) "Victory!" else "Defeat.", fontWeight = FontWeight.Bold)
-        view.finalGuess?.let { fg ->
-            if (fg.targetId != null) {
-                val name = view.players.firstOrNull { it.id == fg.targetId }?.name ?: "?"
-                Text("Mir Modon accused $name — ${if (fg.correct == true) "correct!" else "wrong."}")
-            }
+    val iWon = view.self?.side != null && view.self?.side == winner
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        WinBanner(winner)
+        Text(if (iWon) "🎉 জয়!" else "পরাজয়", color = PolashiColors.Cream, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+        view.finalGuess?.takeIf { it.targetId != null }?.let { fg ->
+            val name = view.players.firstOrNull { it.id == fg.targetId }?.name ?: "?"
+            Text("মীর মদন $name-কে চিহ্নিত করেছেন — ${if (fg.correct == true) "সঠিক!" else "ভুল।"}", color = PolashiColors.CreamDim, textAlign = TextAlign.Center)
         }
 
-        Text("Roles revealed:", fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
-        view.players.forEach { p ->
-            val key = view.rolesReveal?.get(p.id)
-            val side = if (key != null) sideOf(key) else null
-            Card(
-                Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Characters.sideColor(side).copy(alpha = 0.12f)),
-            ) {
-                androidx.compose.foundation.layout.Row(
-                    Modifier.fillMaxWidth().padding(12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(p.name + if (p.id == myUserId) " (you)" else "")
-                    Text(Characters.name(key), color = Characters.sideColor(side), fontWeight = FontWeight.Bold)
+        PolashiPanel(Modifier.fillMaxWidth()) {
+            Text("চরিত্র প্রকাশ", color = PolashiColors.Ink, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), textAlign = TextAlign.Center)
+            view.players.forEach { p ->
+                val key = view.rolesReveal?.get(p.id)
+                Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(p.name + if (p.id == myUserId) " (you)" else "", color = PolashiColors.Ink)
+                    Text(Characters.name(key), color = Characters.sideColor(sideOf(key)), fontWeight = FontWeight.Bold)
                 }
             }
         }
-
-        Button(onClick = onHistory, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
-            Text("View history")
-        }
+        GoldButton("খেলার ইতিহাস", onClick = onHistory, modifier = Modifier.fillMaxWidth())
     }
 }
 
-// Local side lookup for the role-reveal list (mirrors backend CHARACTER_SIDE).
-private fun sideOf(key: String): String = when (key) {
+private fun sideOf(key: String?): String? = when (key) {
+    null -> null
     "MIR_MODON", "NAWAB", "MOHAN_LAL" -> "NAWAB"
     else -> "EIC"
 }
