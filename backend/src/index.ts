@@ -164,7 +164,8 @@ p{font-size:18px;line-height:1.5;color:#dfd0b1}a{color:#f3c767;font-weight:700}
     return;
   }
   if (req.method === 'GET' && req.url?.startsWith('/uploads/')) {
-    const name = decodeURIComponent(req.url.slice('/uploads/'.length));
+    // Strip any query string (e.g. the admin grid's ?t= cache-buster) before matching.
+    const name = decodeURIComponent(req.url.slice('/uploads/'.length).split('?')[0]!);
     const allowed = assetSlots.flatMap((slot) => Object.keys(contentTypes).map((ext) => `${slot}${ext}`));
     const directName = allowed.includes(name) ? name : null;
     const slotName = assetSlots.includes(name as (typeof assetSlots)[number]) ? name : null;
